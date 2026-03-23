@@ -1,8 +1,11 @@
 package com.iafenvoy.saturn.bus;
 
 //? !fabric {
-
+//? neoforge {
 import net.neoforged.bus.api.IEventBus;
+//?} else {
+/*import net.minecraftforge.eventbus.api.IEventBus;
+*///?}
 import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;

@@ -4,7 +4,9 @@ package com.iafenvoy.saturn;
 /*import net.fabricmc.api.EnvType;
 import net.fabricmc.loader.api.FabricLoader;
 *///?} else forge {
-//?} else neoforge {
+/*import net.minecraftforge.fml.ModList;
+import net.minecraftforge.fml.loading.FMLEnvironment;
+*///?} else neoforge {
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.loading.FMLEnvironment;
 //?}
@@ -15,8 +17,8 @@ public final class Platform {
         //? fabric {
         /*return Loader.FABRIC;
         *///?} else forge {
-        //return Loader.FORGE;
-        //?} else neoforge {
+        /*return Loader.FORGE;
+        *///?} else neoforge {
         return Loader.NEOFORGE;
          //?}
     }

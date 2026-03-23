@@ -19,7 +19,7 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 @SuppressWarnings("unused")
-public class DeferredHolder<R, T extends R> implements Holder<R>, Supplier<T> {
+public class DeferredHolder<R, T extends R> implements Holder<R>/*? !forge {*/, Supplier<T>/*?}*/ {
     protected final ResourceKey<R> key;
     private @Nullable Holder<R> holder = null;
 
@@ -49,7 +49,7 @@ public class DeferredHolder<R, T extends R> implements Holder<R>, Supplier<T> {
     }
 
     @Override
-    public T get() {
+    public @NotNull T get() {
         return this.value();
     }
 
@@ -76,11 +76,6 @@ public class DeferredHolder<R, T extends R> implements Holder<R>, Supplier<T> {
 
     public ResourceLocation getId() {
         return this.key.location();
-    }
-
-    @Override
-    public ResourceKey<R> getKey() {
-        return this.key;
     }
 
     @Override
@@ -128,12 +123,19 @@ public class DeferredHolder<R, T extends R> implements Holder<R>, Supplier<T> {
         return this.holder != null && this.holder.is(tag);
     }
 
+    //? !forge {
+    @Override
+    public ResourceKey<R> getKey() {
+        return this.key;
+    }
+
     @Override
     @Deprecated
     public boolean is(@NotNull Holder<R> holder) {
         this.bind(false);
         return this.holder != null && this.holder.is(holder);
     }
+    //?}
 
     @Override
     public @NotNull Stream<TagKey<R>> tags() {

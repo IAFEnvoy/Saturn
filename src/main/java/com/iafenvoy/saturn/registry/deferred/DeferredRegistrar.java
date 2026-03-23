@@ -13,7 +13,11 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.tags.TagKey;
 //? !fabric {
 import com.iafenvoy.saturn.bus.SaturnBuses;
+//? neoforge {
 import net.neoforged.neoforge.registries.RegisterEvent;
+//?} else forge {
+/*import net.minecraftforge.registries.RegisterEvent;
+*///?}
 //?}
 import org.jetbrains.annotations.Nullable;
 
@@ -105,7 +109,7 @@ public class DeferredRegistrar<T> {
     private void addEntries(RegisterEvent event) {
         if (event.getRegistryKey().equals(this.registryKey)) {
             this.registered = true;
-            Registry<T> registry = event.getRegistry(this.registryKey);
+            Registry<T> registry = event/*? neoforge {*/.getRegistry(this.registryKey)/*?} else {*//*.getVanillaRegistry()*//*?}*/;
             Objects.requireNonNull(registry);
             for (Map.Entry<DeferredHolder<T, ? extends T>, Supplier<? extends T>> e : this.entries.entrySet()) {
                 event.register(this.registryKey, e.getKey().getId(), () -> e.getValue().get());

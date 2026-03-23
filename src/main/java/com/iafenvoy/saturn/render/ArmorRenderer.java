@@ -17,13 +17,9 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ItemLike;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
 
-import java.util.Arrays;
 import java.util.HashMap;
 
-@OnlyIn(Dist.CLIENT)
 public interface ArmorRenderer<T extends LivingEntity> {
     HashMap<ItemLike, ArmorRenderer<? extends LivingEntity>> RENDERERS = new HashMap<>();
 
@@ -42,11 +38,12 @@ public interface ArmorRenderer<T extends LivingEntity> {
         armorModel.leftLeg.visible = slot == EquipmentSlot.LEGS || slot == EquipmentSlot.FEET;
         armorModel.rightLeg.visible = slot == EquipmentSlot.LEGS || slot == EquipmentSlot.FEET;
         VertexConsumer consumer = vertexConsumers.getBuffer(RenderType.armorCutoutNoCull(this.getArmorTexture(stack, entity, slot)));
-        armorModel.renderToBuffer(matrices, consumer, light, OverlayTexture.NO_OVERLAY, -1);
+        armorModel.renderToBuffer(matrices, consumer, light, OverlayTexture.NO_OVERLAY, /*? >=1.21 {*/-1/*?} else {*//*1, 1, 1, 1*//*?}*/);
     }
+
     static void renderPart(PoseStack matrices, MultiBufferSource vertexConsumers, int light, ItemStack stack, Model model, ResourceLocation texture) {
-        VertexConsumer vertexConsumer = ItemRenderer.getArmorFoilBuffer(vertexConsumers, RenderType.armorCutoutNoCull(texture), stack.hasFoil());
-        model.renderToBuffer(matrices, vertexConsumer, light, OverlayTexture.NO_OVERLAY, -1);
+        VertexConsumer vertexConsumer = ItemRenderer.getArmorFoilBuffer(vertexConsumers, RenderType.armorCutoutNoCull(texture), /*? <=1.21 {*//*false, *//*?}*/stack.hasFoil());
+        model.renderToBuffer(matrices, vertexConsumer, light, OverlayTexture.NO_OVERLAY, /*? >=1.21 {*/-1/*?} else {*//*1, 1, 1, 1*//*?}*/);
     }
 
     //From trinkets

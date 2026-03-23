@@ -21,8 +21,8 @@ public abstract class HumanoidArmorLayerMixin<T extends LivingEntity, M extends 
         super(context);
     }
 
-    @Inject(method = /*? fabric {*//*"renderArmorPiece"*//*?} else {*/"renderArmorPiece(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/entity/EquipmentSlot;ILnet/minecraft/client/model/HumanoidModel;FFFFFF)V"/*?}*/, at = @At("HEAD"), cancellable = true)
-    private void onRenderArmor(PoseStack poseStack, MultiBufferSource bufferSource, LivingEntity livingEntity, EquipmentSlot slot, int packedLight, A model, /*? !fabric {*/float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks, float netHeadYaw, float headPitch, /*?}*/CallbackInfo ci) {
+    @Inject(method = /*? neoforge {*/"renderArmorPiece(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/entity/EquipmentSlot;ILnet/minecraft/client/model/HumanoidModel;FFFFFF)V"/*?} else {*//*"renderArmorPiece"*//*?}*/, at = @At("HEAD"), cancellable = true)
+    private void onRenderArmor(PoseStack poseStack, MultiBufferSource bufferSource, LivingEntity livingEntity, EquipmentSlot slot, int packedLight, A model, /*? neoforge {*/float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks, float netHeadYaw, float headPitch, /*?}*/CallbackInfo ci) {
         ItemStack stack = livingEntity.getItemBySlot(slot);
         @SuppressWarnings("unchecked")
         ArmorRenderer<T> renderer = (ArmorRenderer<T>) ArmorRenderer.RENDERERS.get(stack.getItem());

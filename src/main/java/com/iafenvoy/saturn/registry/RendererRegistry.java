@@ -2,6 +2,7 @@ package com.iafenvoy.saturn.registry;
 
 import com.iafenvoy.saturn.render.ArmorRenderer;
 import com.iafenvoy.saturn.render.DynamicItemRenderer;
+import com.iafenvoy.saturn.util.function.Consumer3;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.MenuAccess;
@@ -21,15 +22,21 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 /*import net.fabricmc.fabric.api.client.particle.v1.ParticleFactoryRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.fabricmc.fabric.impl.client.rendering.BlockEntityRendererRegistryImpl;
-*///?} else neoforge {
+*///?} else {
 import com.iafenvoy.saturn.Platform;
 import com.iafenvoy.saturn.Saturn;
 import com.iafenvoy.saturn.bus.SaturnBuses;
+//? neoforge {
 import net.neoforged.bus.api.Event;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.client.event.RegisterParticleProvidersEvent;
-import org.apache.commons.lang3.function.TriConsumer;
+//?} else {
+/*import net.minecraftforge.client.event.EntityRenderersEvent;
+import net.minecraftforge.client.event.RegisterParticleProvidersEvent;
+import net.minecraftforge.eventbus.api.Event;
+import net.minecraftforge.eventbus.api.EventPriority;
+*///?}
 
 import java.util.HashMap;
 import java.util.Map;
@@ -40,8 +47,8 @@ import java.util.Arrays;
 import java.util.function.Supplier;
 
 //? fabric {
-//@SuppressWarnings("unused")
-//?} else {
+/*@SuppressWarnings("unused")
+ *///?} else {
 @SuppressWarnings({"rawtypes", "unused"})
 //?}
 public final class RendererRegistry {
@@ -52,7 +59,6 @@ public final class RendererRegistry {
     private static final Registrar<BlockEntityType, BlockEntityRendererProvider> BLOCK_ENTITY_RENDERERS = new Registrar<>(EntityRenderersEvent.RegisterRenderers.class, EntityRenderersEvent.RegisterRenderers::registerBlockEntityRenderer);
     private static final Registrar<ParticleType, ParticleProvider> SPECIAL_PARTICLE_PROVIDERS = new Registrar<>(RegisterParticleProvidersEvent.class, RegisterParticleProvidersEvent::registerSpecial);
     private static final Registrar<ParticleType, ParticleProvider.Sprite> SPRITE_PARTICLE_PROVIDERS = new Registrar<>(RegisterParticleProvidersEvent.class, RegisterParticleProvidersEvent::registerSprite);
-    private static final Registrar<MenuType, MenuScreens.ScreenConstructor> SCREEN_FACTORIES = new Registrar<>(RegisterMenuScreensEvent.class, RegisterMenuScreensEvent::register);
     //?}
 
     public static <T extends Entity> void registerEntityRenderer(Supplier<EntityType<? extends T>> type, EntityRendererProvider<T> provider) {
@@ -96,11 +102,7 @@ public final class RendererRegistry {
     }
 
     public static <H extends AbstractContainerMenu, S extends Screen & MenuAccess<H>> void registerScreenFactory(Supplier<MenuType<? extends H>> type, MenuScreens.ScreenConstructor<H, S> factory) {
-        //? fabric {
-        /*MenuScreens.register(type.get(), factory);
-         *///?} else {
-        SCREEN_FACTORIES.register(type, factory);
-        //?}
+        MenuScreens.register(type.get(), factory);
     }
 
     //? !fabric {
@@ -108,8 +110,8 @@ public final class RendererRegistry {
         private final Map<Supplier<? extends K>, V> data = new HashMap<>();
         private boolean registered = false;
 
-        public <E extends Event> Registrar(Class<E> eventClass, TriConsumer<E, K, V> registerFunc) {
-            SaturnBuses.findBus(Saturn.MOD_ID).addListener(eventClass, e -> this.visitRegister((k, v) -> registerFunc.accept(e, k, v)));
+        public <E extends Event> Registrar(Class<E> eventClass, Consumer3<E, K, V> registerFunc) {
+            SaturnBuses.findBus(Saturn.MOD_ID).addListener(/*? forge {*//*EventPriority.NORMAL, true, *//*?}*/eventClass, e -> this.visitRegister((k, v) -> registerFunc.accept(e, k, v)));
         }
 
         public void register(Supplier<? extends K> supplier, V value) {
