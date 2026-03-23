@@ -59,6 +59,9 @@ public final class RendererRegistry {
     private static final Registrar<BlockEntityType, BlockEntityRendererProvider> BLOCK_ENTITY_RENDERERS = new Registrar<>(EntityRenderersEvent.RegisterRenderers.class, EntityRenderersEvent.RegisterRenderers::registerBlockEntityRenderer);
     private static final Registrar<ParticleType, ParticleProvider> SPECIAL_PARTICLE_PROVIDERS = new Registrar<>(RegisterParticleProvidersEvent.class, RegisterParticleProvidersEvent::registerSpecial);
     private static final Registrar<ParticleType, ParticleProvider.Sprite> SPRITE_PARTICLE_PROVIDERS = new Registrar<>(RegisterParticleProvidersEvent.class, RegisterParticleProvidersEvent::registerSprite);
+    //? neoforge {
+    private static final Registrar<MenuType, MenuScreens.ScreenConstructor> SCREEN_FACTORIES = new Registrar<>(RegisterMenuScreensEvent.class, RegisterMenuScreensEvent::register);
+    //?}
     //?}
 
     public static <T extends Entity> void registerEntityRenderer(Supplier<EntityType<? extends T>> type, EntityRendererProvider<T> provider) {
@@ -102,7 +105,11 @@ public final class RendererRegistry {
     }
 
     public static <H extends AbstractContainerMenu, S extends Screen & MenuAccess<H>> void registerScreenFactory(Supplier<MenuType<? extends H>> type, MenuScreens.ScreenConstructor<H, S> factory) {
-        MenuScreens.register(type.get(), factory);
+        //? neoforge {
+        SCREEN_FACTORIES.register(type, factory);
+        //?} else {
+//        MenuScreens.register(type.get(), factory);
+        //?}
     }
 
     //? !fabric {
