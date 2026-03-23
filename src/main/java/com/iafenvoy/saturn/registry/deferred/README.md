@@ -1,0 +1,1 @@
+Most code in this package are from NeoForge under LGPL-2.1 license.

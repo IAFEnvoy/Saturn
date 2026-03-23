@@ -17,6 +17,7 @@
   "entrypoints": {
   },
   "mixins": [
+    "saturn.mixins.json"
   ],
   "depends": {
     "minecraft": [${supported_minecraft_versions}]
