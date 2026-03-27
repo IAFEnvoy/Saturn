@@ -6,8 +6,6 @@
   "mixins": [
   ],
   "client": [
-    "BlockEntityWithoutLevelRendererMixin",
-    "HumanoidArmorLayerMixin"
   ],
   "injectors": {
     "defaultRequire": 1

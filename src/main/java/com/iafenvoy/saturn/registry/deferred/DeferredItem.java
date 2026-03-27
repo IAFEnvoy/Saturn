@@ -2,7 +2,7 @@ package com.iafenvoy.saturn.registry.deferred;
 
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ItemLike;
@@ -23,7 +23,7 @@ public class DeferredItem<T extends Item> extends DeferredHolder<Item, T> implem
         }
     }
 
-    public static <T extends Item> DeferredItem<T> createItem(ResourceLocation key) {
+    public static <T extends Item> DeferredItem<T> createItem(Identifier key) {
         return createItem(ResourceKey.create(Registries.ITEM, key));
     }
 

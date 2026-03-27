@@ -4,5 +4,5 @@ import java.lang.annotation.*;
 
 @Documented
 @Retention(RetentionPolicy.CLASS)
-public @interface ForgeLikeOnly {
+public @interface NeoForgeOnly {
 }

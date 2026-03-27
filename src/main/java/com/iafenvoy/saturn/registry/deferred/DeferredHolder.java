@@ -1,33 +1,39 @@
 package com.iafenvoy.saturn.registry.deferred;
 
+import com.iafenvoy.saturn.event.Event;
+import com.iafenvoy.saturn.event.EventFactory;
 import com.mojang.datafixers.util.Either;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderOwner;
 import net.minecraft.core.Registry;
+import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.NonNull;
 
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 @SuppressWarnings("unused")
-public class DeferredHolder<R, T extends R> implements Holder<R>/*? !forge {*/, Supplier<T>/*?}*/ {
+public class DeferredHolder<R, T extends R> implements Holder<R>, Supplier<T> {
     protected final ResourceKey<R> key;
     private @Nullable Holder<R> holder = null;
+    private final Event<BiConsumer<Identifier, T>> callback = EventFactory.biConsumer();
 
-    public static <R, T extends R> DeferredHolder<R, T> create(ResourceKey<? extends Registry<R>> registryKey, ResourceLocation valueName) {
+    public static <R, T extends R> DeferredHolder<R, T> create(ResourceKey<? extends Registry<R>> registryKey, Identifier valueName) {
         return create(ResourceKey.create(registryKey, valueName));
     }
 
-    public static <R, T extends R> DeferredHolder<R, T> create(ResourceLocation registryName, ResourceLocation valueName) {
+    public static <R, T extends R> DeferredHolder<R, T> create(Identifier registryName, Identifier valueName) {
         return create(ResourceKey.createRegistryKey(registryName), valueName);
     }
 
@@ -59,14 +65,17 @@ public class DeferredHolder<R, T extends R> implements Holder<R>/*? !forge {*/, 
 
     @SuppressWarnings("unchecked")
     protected @Nullable Registry<R> getRegistry() {
-        return (Registry<R>) BuiltInRegistries.REGISTRY.get(this.key.registry());
+        return (Registry<R>) BuiltInRegistries.REGISTRY.getValue(this.key.registry());
     }
 
+    @SuppressWarnings("unchecked")
     protected final void bind(boolean throwOnMissingRegistry) {
         if (this.holder == null) {
             Registry<R> registry = this.getRegistry();
-            if (registry != null) this.holder = registry.getHolder(this.key).orElse(null);
-            else if (throwOnMissingRegistry) {
+            if (registry != null) {
+                this.holder = registry.get(this.key).orElse(null);
+                if (this.holder != null) this.callback.invoker().accept(this.key.identifier(),(T) this.holder.value());
+            } else if (throwOnMissingRegistry) {
                 String var10002 = String.valueOf(this);
                 throw new IllegalStateException("Registry not present for " + var10002 + ": " + this.key.registry());
             }
@@ -74,8 +83,8 @@ public class DeferredHolder<R, T extends R> implements Holder<R>/*? !forge {*/, 
         }
     }
 
-    public ResourceLocation getId() {
-        return this.key.location();
+    public Identifier getId() {
+        return this.key.identifier();
     }
 
     @Override
@@ -103,8 +112,14 @@ public class DeferredHolder<R, T extends R> implements Holder<R>/*? !forge {*/, 
     }
 
     @Override
-    public boolean is(ResourceLocation id) {
-        return id.equals(this.key.location());
+    public boolean areComponentsBound() {
+        this.bind(false);
+        return this.holder != null && this.holder.areComponentsBound();
+    }
+
+    @Override
+    public boolean is(Identifier id) {
+        return id.equals(this.key.identifier());
     }
 
     @Override
@@ -123,11 +138,12 @@ public class DeferredHolder<R, T extends R> implements Holder<R>/*? !forge {*/, 
         return this.holder != null && this.holder.is(tag);
     }
 
-    //? !forge {
-    @Override
-    public ResourceKey<R> getKey() {
-        return this.key;
-    }
+    //? neoforge {
+//    @Override
+//    public ResourceKey<R> getKey() {
+//        return this.key;
+//    }
+    //?}
 
     @Override
     @Deprecated
@@ -135,12 +151,17 @@ public class DeferredHolder<R, T extends R> implements Holder<R>/*? !forge {*/, 
         this.bind(false);
         return this.holder != null && this.holder.is(holder);
     }
-    //?}
 
     @Override
     public @NotNull Stream<TagKey<R>> tags() {
         this.bind(false);
         return this.holder != null ? this.holder.tags() : Stream.empty();
+    }
+
+    @Override
+    public @NonNull DataComponentMap components() {
+        this.bind(true);
+        return this.holder != null ? this.holder.components() : DataComponentMap.EMPTY;
     }
 
     @Override
@@ -159,8 +180,12 @@ public class DeferredHolder<R, T extends R> implements Holder<R>/*? !forge {*/, 
     }
 
     @Override
-    public boolean canSerializeIn(HolderOwner<R> owner) {
+    public boolean canSerializeIn(@NotNull HolderOwner<R> owner) {
         this.bind(false);
         return this.holder != null && this.holder.canSerializeIn(owner);
+    }
+
+    public void onRegister(BiConsumer<Identifier, T> consumer) {
+        this.callback.register(consumer);
     }
 }

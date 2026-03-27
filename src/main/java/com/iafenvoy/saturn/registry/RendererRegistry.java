@@ -1,13 +1,12 @@
 package com.iafenvoy.saturn.registry;
 
-import com.iafenvoy.saturn.render.ArmorRenderer;
-import com.iafenvoy.saturn.render.DynamicItemRenderer;
-import com.iafenvoy.saturn.util.function.Consumer3;
+import net.fabricmc.fabric.api.client.particle.v1.ParticleProviderRegistry;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.MenuAccess;
 import net.minecraft.client.particle.ParticleProvider;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
+import net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleType;
@@ -15,126 +14,74 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.MenuType;
-import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 //? fabric {
-/*import net.fabricmc.fabric.api.client.particle.v1.ParticleFactoryRegistry;
-import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
-import net.fabricmc.fabric.impl.client.rendering.BlockEntityRendererRegistryImpl;
-*///?} else {
-import com.iafenvoy.saturn.Platform;
-import com.iafenvoy.saturn.Saturn;
-import com.iafenvoy.saturn.bus.SaturnBuses;
-//? neoforge {
-import net.neoforged.bus.api.Event;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
+import net.minecraft.client.renderer.entity.EntityRenderers;
+import org.jspecify.annotations.NullMarked;
+//?} else neoforge {
+/*import net.minecraft.client.particle.ParticleResources;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.client.event.RegisterParticleProvidersEvent;
-//?} else {
-/*import net.minecraftforge.client.event.EntityRenderersEvent;
-import net.minecraftforge.client.event.RegisterParticleProvidersEvent;
-import net.minecraftforge.eventbus.api.Event;
-import net.minecraftforge.eventbus.api.EventPriority;
+import org.jspecify.annotations.NullMarked;
 *///?}
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.function.BiConsumer;
-//?}
-
-import java.util.Arrays;
 import java.util.function.Supplier;
 
 //? fabric {
-/*@SuppressWarnings("unused")
- *///?} else {
-@SuppressWarnings({"rawtypes", "unused"})
-//?}
+@SuppressWarnings("unused")
+ //?} else {
+/*@SuppressWarnings({"rawtypes", "unused"})
+*///?}
 public final class RendererRegistry {
-    // render type, model predicate
-
-    //? !fabric {
-    private static final Registrar<EntityType, EntityRendererProvider> ENTITY_RENDERERS = new Registrar<>(EntityRenderersEvent.RegisterRenderers.class, EntityRenderersEvent.RegisterRenderers::registerEntityRenderer);
-    private static final Registrar<BlockEntityType, BlockEntityRendererProvider> BLOCK_ENTITY_RENDERERS = new Registrar<>(EntityRenderersEvent.RegisterRenderers.class, EntityRenderersEvent.RegisterRenderers::registerBlockEntityRenderer);
-    private static final Registrar<ParticleType, ParticleProvider> SPECIAL_PARTICLE_PROVIDERS = new Registrar<>(RegisterParticleProvidersEvent.class, RegisterParticleProvidersEvent::registerSpecial);
-    private static final Registrar<ParticleType, ParticleProvider.Sprite> SPRITE_PARTICLE_PROVIDERS = new Registrar<>(RegisterParticleProvidersEvent.class, RegisterParticleProvidersEvent::registerSprite);
     //? neoforge {
-    private static final Registrar<MenuType, MenuScreens.ScreenConstructor> SCREEN_FACTORIES = new Registrar<>(RegisterMenuScreensEvent.class, RegisterMenuScreensEvent::register);
-    //?}
-    //?}
+    /*private static final ForgeLikeEventRegistrar<EntityType, EntityRendererProvider> ENTITY_RENDERERS = new ForgeLikeEventRegistrar<>(EntityRenderersEvent.RegisterRenderers.class, EntityRenderersEvent.RegisterRenderers::registerEntityRenderer);
+    private static final ForgeLikeEventRegistrar<BlockEntityType, BlockEntityRendererProvider> BLOCK_ENTITY_RENDERERS = new ForgeLikeEventRegistrar<>(EntityRenderersEvent.RegisterRenderers.class, EntityRenderersEvent.RegisterRenderers::registerBlockEntityRenderer);
+    private static final ForgeLikeEventRegistrar<ParticleType, ParticleProvider> SPECIAL_PARTICLE_PROVIDERS = new ForgeLikeEventRegistrar<>(RegisterParticleProvidersEvent.class, RegisterParticleProvidersEvent::registerSpecial);
+    private static final ForgeLikeEventRegistrar<ParticleType, ParticleResources.SpriteParticleRegistration> SPRITE_PARTICLE_PROVIDERS = new ForgeLikeEventRegistrar<>(RegisterParticleProvidersEvent.class, RegisterParticleProvidersEvent::registerSpriteSet);
+    private static final ForgeLikeEventRegistrar<MenuType, MenuScreens.ScreenConstructor> SCREEN_FACTORIES = new ForgeLikeEventRegistrar<>(RegisterMenuScreensEvent.class, RegisterMenuScreensEvent::register);
+    *///?}
 
     public static <T extends Entity> void registerEntityRenderer(Supplier<EntityType<? extends T>> type, EntityRendererProvider<T> provider) {
         //? fabric {
-        /*EntityRendererRegistry.register(type.get(), provider);
-         *///?} else {
-        ENTITY_RENDERERS.register(type, provider);
-        //?}
+        EntityRenderers.register(type.get(), provider);
+         //?} else {
+        /*ENTITY_RENDERERS.register(type, provider);
+        *///?}
     }
 
-    public static <T extends BlockEntity> void registerEntityRenderer(Supplier<BlockEntityType<? extends T>> type, BlockEntityRendererProvider<T> provider) {
+    public static <T extends BlockEntity, S extends BlockEntityRenderState> void registerEntityRenderer(Supplier<BlockEntityType<? extends T>> type, BlockEntityRendererProvider<T, S> provider) {
         //? fabric {
-        /*BlockEntityRendererRegistryImpl.register(type.get(), provider);
-         *///?} else {
-        BLOCK_ENTITY_RENDERERS.register(type, provider);
-        //?}
+        BlockEntityRenderers.register(type.get(), provider);
+         //?} else {
+        /*BLOCK_ENTITY_RENDERERS.register(type, provider);
+        *///?}
     }
 
     public <T extends ParticleOptions> void registerSpecialParticleProvider(Supplier<ParticleType<T>> type, ParticleProvider<T> provider) {
         //? fabric {
-        /*ParticleFactoryRegistry.getInstance().register(type.get(), provider);
-         *///?} else {
-        SPECIAL_PARTICLE_PROVIDERS.register(type, provider);
-        //?}
+        ParticleProviderRegistry.getInstance().register(type.get(), provider);
+         //?} else {
+        /*SPECIAL_PARTICLE_PROVIDERS.register(type, provider);
+        *///?}
     }
 
-    public <T extends ParticleOptions> void registerSpriteParticleProvider(Supplier<ParticleType<T>> type, ParticleProvider.Sprite<T> sprite) {
+    public <T extends ParticleOptions> void registerSpriteParticleProvider(Supplier<ParticleType<T>> type, /*? neoforge {*//*ParticleResources.SpriteParticleRegistration<T>*//*?} else {*/ParticleProviderRegistry.PendingParticleProvider<T>/*?}*/ sprite) {
         //? fabric {
-        /*ParticleFactoryRegistry.getInstance().register(type.get(), sprite::createParticle);
-         *///?} else {
-        SPRITE_PARTICLE_PROVIDERS.register(type, sprite);
-        //?}
+        ParticleProviderRegistry.getInstance().register(type.get(), sprite);
+         //?} else {
+        /*SPRITE_PARTICLE_PROVIDERS.register(type, sprite);
+        *///?}
     }
 
-    public void registerDynamicItemRenderer(DynamicItemRenderer renderer, ItemLike... items) {
-        Arrays.stream(items).forEach(item -> DynamicItemRenderer.RENDERERS.put(item, renderer));
-    }
-
-    public void registerArmorRenderer(ArmorRenderer<?> renderer, ItemLike... items) {
-        Arrays.stream(items).forEach(item -> ArmorRenderer.RENDERERS.put(item, renderer));
-    }
-
-    public static <H extends AbstractContainerMenu, S extends Screen & MenuAccess<H>> void registerScreenFactory(Supplier<MenuType<? extends H>> type, MenuScreens.ScreenConstructor<H, S> factory) {
+    @NullMarked
+    public static <T extends AbstractContainerMenu, U extends Screen & MenuAccess<T>> void registerScreenFactory(Supplier<MenuType<? extends T>> type, MenuScreens.ScreenConstructor<T, U> factory) {
         //? neoforge {
-        SCREEN_FACTORIES.register(type, factory);
-        //?} else {
-//        MenuScreens.register(type.get(), factory);
-        //?}
+        /*SCREEN_FACTORIES.register(type, factory);
+        *///?} else {
+        MenuScreens.register(type.get(), factory);
+         //?}
     }
-
-    //? !fabric {
-    private static class Registrar<K, V> {
-        private final Map<Supplier<? extends K>, V> data = new HashMap<>();
-        private boolean registered = false;
-
-        public <E extends Event> Registrar(Class<E> eventClass, Consumer3<E, K, V> registerFunc) {
-            SaturnBuses.findBus(Saturn.MOD_ID).addListener(/*? forge {*//*EventPriority.NORMAL, true, *//*?}*/eventClass, e -> this.visitRegister((k, v) -> registerFunc.accept(e, k, v)));
-        }
-
-        public void register(Supplier<? extends K> supplier, V value) {
-            if (this.registered) {
-                if (Platform.isDevelopmentEnvironment())
-                    throw new IllegalStateException("This Registrar has posted register! Call this earlier.");
-                else Saturn.LOGGER.warn("This Registrar has posted register! Some rendering may missing!");
-            }
-            this.data.put(supplier, value);
-        }
-
-        public void visitRegister(BiConsumer<K, V> visitor) {
-            for (Map.Entry<Supplier<? extends K>, V> entry : this.data.entrySet())
-                visitor.accept(entry.getKey().get(), entry.getValue());
-            this.registered = true;
-        }
-    }
-    //?}
 }

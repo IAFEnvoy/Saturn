@@ -1,8 +1,7 @@
 package com.iafenvoy.saturn._loader.neoforge;
 
 //? neoforge {
-
-import com.iafenvoy.saturn.Saturn;
+/*import com.iafenvoy.saturn.Saturn;
 import com.iafenvoy.saturn.bus.SaturnBuses;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
@@ -13,3 +12,4 @@ public final class SaturnNeoForge {
         SaturnBuses.submitBus(Saturn.MOD_ID, bus);
     }
 }
+*/

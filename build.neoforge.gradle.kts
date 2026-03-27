@@ -1,3 +1,5 @@
+import java.util.LinkedList
+
 plugins {
     id("net.neoforged.moddev")
     id("dev.kikugie.postprocess.jsonlang")
@@ -13,7 +15,6 @@ jsonlang {
 }
 
 repositories {
-    maven("https://maven.parchmentmc.org") { name = "ParchmentMC" }
     maven("https://api.modrinth.com/maven/") { name = "Modrinth Maven" }
 }
 
@@ -24,12 +25,6 @@ dependencies{
 neoForge {
     version = property("deps.neoforge") as String
     validateAccessTransformers = true
-
-    if (hasProperty("deps.parchment")) parchment {
-        val (mc, ver) = (property("deps.parchment") as String).split(':')
-        mappingsVersion = ver
-        minecraftVersion = mc
-    }
 
     runs {
         register("client") {
@@ -69,21 +64,18 @@ tasks {
 
 java {
     withSourcesJar()
-    val javaCompat = if (stonecutter.eval(stonecutter.current.version, ">=1.20.5")) JavaVersion.VERSION_21
-    else throw IllegalArgumentException("This template only support NeoForge on 1.20.5+ but version ${stonecutter.current.version} received!")
-    sourceCompatibility = javaCompat
-    targetCompatibility = javaCompat
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
 }
 
-val supportedMinecraftVersions: List<String> = com.google.common.collect.ImmutableList.builder<String>()
-    .addAll(
-        (property("publish.additionalVersions") as String?)
-            ?.split(",")
-            ?.map { it.trim() }
-            ?.filter { it.isNotEmpty() }
-            ?: emptyList())
-    .add(stonecutter.current.version)
-    .build()
+val supportedMinecraftVersions = LinkedList<String>()
+supportedMinecraftVersions.addAll(
+    (property("publish.additionalVersions") as String?)
+        ?.split(",")
+        ?.map { it.trim() }
+        ?.filter { it.isNotEmpty() }
+        ?: emptyList())
+supportedMinecraftVersions.add(stonecutter.current.version)
 
 tasks.named<ProcessResources>("processResources") {
     val props = HashMap<String, String>().apply {

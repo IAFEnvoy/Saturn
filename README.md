@@ -4,8 +4,8 @@ Saturn is a lightweight x-plat API. Aimed at providing same APIs cross loaders a
 
 ## Supported Versions
 
-- Forge 1.20(.1)
-- Fabric 1.20+
+- Forge 1.19~1.20.1
+- Fabric 1.19+
 - NeoForge 1.21+
 
 ## Current Completed APIs
@@ -13,14 +13,13 @@ Saturn is a lightweight x-plat API. Aimed at providing same APIs cross loaders a
 - Registry APIs
 - Renderer APIs
 - Menu&Screen APIs
+- Key Mappings APIs
+- Resource Reloader
 - Partly Events
 - Some Miscellaneous APIs
 
 ## Planned
 
 - All Events
-- Key Mappings APIs
 - Other Miscellaneous Registry APIs (e.g. BiomeModification, ItemProperties, DefaultEntityAttributes, RenderTypes,
   CreativeTabs)
-- Deferred Items (Spawn Eggs)
-- Resource Reloader

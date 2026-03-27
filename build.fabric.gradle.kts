@@ -1,7 +1,7 @@
-@file:Suppress("UnstableApiUsage")
+import java.util.LinkedList
 
 plugins {
-    id("fabric-loom")
+    id("net.fabricmc.fabric-loom")
     id("dev.kikugie.postprocess.jsonlang")
     id("me.modmuss50.mod-publish-plugin")
 }
@@ -16,7 +16,6 @@ jsonlang {
 
 repositories {
     mavenLocal()
-    maven("https://maven.parchmentmc.org") { name = "ParchmentMC" }
     maven("https://maven.terraformersmc.com/") { name = "ModMenu" }
     maven("https://maven.nucleoid.xyz/") { name = "Placeholder API" }
     maven("https://api.modrinth.com/maven/") { name = "Modrinth Maven" }
@@ -24,16 +23,12 @@ repositories {
 
 dependencies {
     minecraft("com.mojang:minecraft:${property("deps.minecraft")}")
-    mappings(loom.layered {
-        officialMojangMappings()
-        if (hasProperty("deps.parchment"))
-            parchment("org.parchmentmc.data:parchment-${property("deps.parchment")}@zip")
-    })
-    modImplementation("net.fabricmc:fabric-loader:${property("deps.fabric-loader")}")
-    modImplementation("net.fabricmc.fabric-api:fabric-api:${property("deps.fabric-api")}")
-    modImplementation("com.terraformersmc:modmenu:${property("deps.mod_menu")}")
 
-//    modImplementation("maven.modrinth:networking:${property("deps.networking")}")?.let { include(it) }
+    implementation("net.fabricmc:fabric-loader:${property("deps.fabric-loader")}")
+    implementation("net.fabricmc.fabric-api:fabric-api:${property("deps.fabric-api")}")
+    implementation("com.terraformersmc:modmenu:${property("deps.mod_menu")}")
+
+//    implementation("maven.modrinth:networking:${property("deps.networking")}")?.let { include(it) }
 }
 
 fabricApi {
@@ -51,7 +46,6 @@ tasks {
 
     register<Copy>("buildAndCollect") {
         group = "build"
-        from(remapJar.map { it.archiveFile })
         into(rootProject.layout.buildDirectory.file("libs/${project.property("mod.version")}"))
         dependsOn("build")
     }
@@ -59,23 +53,18 @@ tasks {
 
 java {
     withSourcesJar()
-    val javaCompat = if (stonecutter.eval(stonecutter.current.version, ">=1.20.5")) JavaVersion.VERSION_21
-    else if (stonecutter.eval(stonecutter.current.version, ">=1.18")) JavaVersion.VERSION_17
-    else if (stonecutter.eval(stonecutter.current.version, ">=1.17")) JavaVersion.VERSION_16
-    else JavaVersion.VERSION_1_8
-    sourceCompatibility = javaCompat
-    targetCompatibility = javaCompat
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
 }
 
-val supportedMinecraftVersions: List<String> = com.google.common.collect.ImmutableList.builder<String>()
-    .addAll(
-        (property("publish.additionalVersions") as String?)
-            ?.split(",")
-            ?.map { it.trim() }
-            ?.filter { it.isNotEmpty() }
-            ?: emptyList())
-    .add(stonecutter.current.version)
-    .build()
+val supportedMinecraftVersions = LinkedList<String>()
+supportedMinecraftVersions.addAll(
+    (property("publish.additionalVersions") as String?)
+        ?.split(",")
+        ?.map { it.trim() }
+        ?.filter { it.isNotEmpty() }
+        ?: emptyList())
+supportedMinecraftVersions.add(stonecutter.current.version)
 
 tasks.named<ProcessResources>("processResources") {
     val props = HashMap<String, String>().apply {
@@ -96,8 +85,8 @@ tasks.named<ProcessResources>("processResources") {
 }
 
 publishMods {
-    file = tasks.remapJar.map { it.archiveFile.get() }
-    additionalFiles.from(tasks.remapSourcesJar.map { it.archiveFile.get() })
+    file = tasks.jar.map { it.archiveFile.get() }
+    additionalFiles.from(tasks.named<org.gradle.jvm.tasks.Jar>("sourcesJar").map { it.archiveFile.get() })
 
     val modVersion = property("mod.version") as String
     type = if (modVersion.contains("alpha")) ALPHA
