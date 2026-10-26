@@ -1,0 +1,27 @@
+package com.iafenvoy.saturn.data;
+
+import com.iafenvoy.saturn.util.formula.FormulaContext;
+import com.iafenvoy.saturn.util.formula.NumberProvider;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import net.minecraft.core.Holder;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+
+import java.util.Optional;
+
+/**
+ * An attribute target paired with the vanilla modifier. The optional value
+ * provider replaces the modifier amount at runtime and is evaluated each tick.
+ */
+public record AttributeEntry(Holder<Attribute> attribute, AttributeModifier modifier, Optional<NumberProvider> value) {
+    public static final Codec<AttributeEntry> CODEC = RecordCodecBuilder.create(i -> i.group(
+            Attribute.CODEC.fieldOf("attribute").forGetter(AttributeEntry::attribute),
+            AttributeModifier.MAP_CODEC.forGetter(AttributeEntry::modifier),
+            NumberProvider.CODEC.optionalFieldOf("value").forGetter(AttributeEntry::value)
+    ).apply(i, AttributeEntry::new));
+
+    public double amount(FormulaContext context) {
+        return this.value.map(numberProvider -> numberProvider.evaluate(context)).orElseGet(this.modifier::amount);
+    }
+}

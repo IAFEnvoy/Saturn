@@ -1,0 +1,13 @@
+package com.iafenvoy.saturn.screen.resourcebar.renderer;
+
+import com.iafenvoy.saturn.data.resourcebar.builtin.renderdata.TextOnlyRenderData;
+import com.iafenvoy.saturn.screen.resourcebar.ResourceBarRenderer;
+
+public final class TextOnlyResourceBarRenderer extends ResourceBarRenderer<TextOnlyRenderData> {
+
+    @Override
+    public void render(TextOnlyRenderData data, Context context) {
+        ResourceBarRendererHelper.value(context, 0xFF000000 | data.color(), data.showMaximum(), data.format());
+        ResourceBarRendererHelper.decorations(context, false);
+    }
+}

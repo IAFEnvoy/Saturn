@@ -1,0 +1,1 @@
+com.iafenvoy.saturn.compat.kubejs.SaturnKubeJsPlugin saturn

@@ -1,0 +1,43 @@
+package com.iafenvoy.saturn.data.resourcebar;
+
+import com.iafenvoy.saturn.attachment.ResourceHolderAttachment;
+import com.iafenvoy.saturn.attachment.ResourceHolderAttachment.Audit;
+import com.iafenvoy.saturn.data.resource.Resource;
+import com.iafenvoy.saturn.registry.SaturnAttachments;
+import com.iafenvoy.saturn.registry.SaturnRegistries;
+import com.mojang.serialization.Codec;
+import net.minecraft.core.Holder;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.LivingEntity;
+
+import java.util.Optional;
+
+/**
+ * Selects the value source and presentation context for a resource bar. Contexts are Java-owned registry entries,
+ * so datapacks can select them but cannot introduce client-side rendering behaviour through JSON.
+ */
+public interface ResourceBarContext {
+    Codec<ResourceBarContext> CODEC = SaturnRegistries.RESOURCE_BAR_CONTEXT.byNameCodec();
+
+    Optional<Values> extract(LivingEntity entity, Holder<Resource> resource);
+
+    // The resource's own definition names it: a context may only frame that name, never derive a second one.
+    Component name(Holder<Resource> resource);
+
+    Layout layout();
+
+    record Values(double current, double minimum, double maximum, long lastChangedTick) {
+    }
+
+    //TODO::Multiple position
+    enum Layout {
+        SELF_HUD, TARGET_OVERLAY, BOSS_OVERLAY
+    }
+
+    static Optional<Values> extractStored(LivingEntity entity, Holder<Resource> resource) {
+        ResourceHolderAttachment holder = entity.getData(SaturnAttachments.RESOURCE_HOLDER);
+        if (!holder.contains(resource)) return Optional.empty();
+        Audit audit = holder.audit(resource);
+        return Optional.of(new Values(holder.get(resource), audit.minSnapshot(), audit.maxSnapshot(), audit.lastChangedTick()));
+    }
+}

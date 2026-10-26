@@ -1,0 +1,29 @@
+package com.iafenvoy.saturn.data.condition.builtin.item;
+
+import com.iafenvoy.saturn.data.condition.ItemCondition;
+import com.iafenvoy.saturn.data.context.condition.ItemConditionContext;
+import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.equipment.Equippable;
+import org.jspecify.annotations.NonNull;
+
+import java.util.Optional;
+
+public record IsEquipableCondition(Optional<EquipmentSlot> slot) implements ItemCondition {
+    public static final MapCodec<IsEquipableCondition> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+            EquipmentSlot.CODEC.optionalFieldOf("slot").forGetter(IsEquipableCondition::slot)
+    ).apply(i, IsEquipableCondition::new));
+
+    @Override
+    public boolean test(@NonNull ItemConditionContext ctx) {
+        Equippable equipable = ctx.stack().get(DataComponents.EQUIPPABLE);
+        return equipable != null && this.slot.map(value -> value == equipable.slot()).orElse(true);
+    }
+
+    @Override
+    public @NonNull MapCodec<IsEquipableCondition> codec() {
+        return CODEC;
+    }
+}

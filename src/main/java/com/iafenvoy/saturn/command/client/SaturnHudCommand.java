@@ -1,0 +1,66 @@
+package com.iafenvoy.saturn.command.client;
+
+import com.iafenvoy.saturn.screen.hud.HudEntry;
+import com.iafenvoy.saturn.screen.hud.HudManager;
+import com.iafenvoy.saturn.screen.hud.ScreenBounds;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.network.chat.Component;
+
+import java.util.List;
+
+import static net.minecraft.commands.Commands.argument;
+import static net.minecraft.commands.Commands.literal;
+
+/**
+ * {@code /saturn hud ...} on the client: a diagnostic for "the editor shows nothing" with no other way of being
+ * answered. It prints what the framework actually holds - every registered element, where it is, whether it is
+ * visible and movable, and how many blocks it offers to draw.
+ */
+public final class SaturnHudCommand {
+    private SaturnHudCommand() {
+    }
+
+    public static LiteralArgumentBuilder<CommandSourceStack> node() {
+        return literal("hud")
+                .executes(SaturnHudCommand::list)
+                .then(literal("open").executes(ctx -> {
+                    HudManager.openEditor();
+                    return 1;
+                }))
+                .then(argument("element", StringArgumentType.string())
+                        .suggests((_, builder) -> SharedSuggestionProvider.suggest(
+                                HudManager.moveableEntries().stream().map(HudEntry::layoutKey), builder))
+                        .then(literal("reset").executes(SaturnHudCommand::reset)));
+    }
+
+    private static int list(CommandContext<CommandSourceStack> context) {
+        List<HudEntry> entries = HudManager.moveableEntries();
+        if (entries.isEmpty()) {
+            context.getSource().sendSuccess(() -> Component.translatable("command.saturn.hud.none"), false);
+            return 0;
+        }
+        for (HudEntry entry : entries) {
+            ScreenBounds bounds = entry.bounds();
+            context.getSource().sendSuccess(() -> Component.translatable("command.saturn.hud.line",
+                    entry.layoutKey(), entry.displayName(), entry.anchor().key(), bounds.x(), bounds.y(),
+                    bounds.width(), bounds.height(), entry.renderBlocks().size(), entry.visible(), entry.moveable()), false);
+        }
+        return entries.size();
+    }
+
+    private static int reset(CommandContext<CommandSourceStack> context) {
+        String key = StringArgumentType.getString(context, "element");
+        for (HudEntry entry : HudManager.moveableEntries()) {
+            if (!entry.layoutKey().equals(key)) continue;
+            entry.resetToDefault();
+            context.getSource().sendSuccess(() -> Component.translatable("command.saturn.hud.reset", key), false);
+            return 1;
+        }
+        context.getSource().sendFailure(Component.translatable("command.saturn.hud.unknown", key));
+        return 0;
+    }
+}

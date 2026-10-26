@@ -1,0 +1,34 @@
+package com.iafenvoy.saturn.advancement;
+
+import com.iafenvoy.saturn.advancement.IdentifierCriterionTrigger.Instance;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import net.minecraft.advancements.criterion.ContextAwarePredicate;
+import net.minecraft.advancements.criterion.EntityPredicate;
+import net.minecraft.advancements.criterion.SimpleCriterionTrigger;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerPlayer;
+import org.jspecify.annotations.NonNull;
+
+import java.util.Optional;
+
+// One codec for every registered instance: each is told which definition ids count, and an instance with no
+// definition filter matches every call, which is what lets one class back several trigger ids.
+public final class IdentifierCriterionTrigger extends SimpleCriterionTrigger<Instance> {
+    @Override
+    public @NonNull Codec<Instance> codec() {
+        return Instance.CODEC;
+    }
+
+    public void trigger(ServerPlayer player, Identifier definition) {
+        this.trigger(player, i -> i.definition().isEmpty() || i.definition().get().equals(definition));
+    }
+
+    public record Instance(Optional<ContextAwarePredicate> player,
+                           Optional<Identifier> definition) implements SimpleInstance {
+        public static final Codec<Instance> CODEC = RecordCodecBuilder.create(i -> i.group(
+                EntityPredicate.ADVANCEMENT_CODEC.optionalFieldOf("player").forGetter(Instance::player),
+                Identifier.CODEC.optionalFieldOf("definition").forGetter(Instance::definition)
+        ).apply(i, Instance::new));
+    }
+}
