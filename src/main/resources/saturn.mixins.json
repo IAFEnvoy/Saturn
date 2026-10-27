@@ -3,6 +3,7 @@
   "package": "com.iafenvoy.saturn.mixin",
   "compatibilityLevel": "JAVA_25",
   "mixins": [
+    "ItemStackUseCycleMixin",
     "ItemUseCycleMixin"
   ],
   "injectors": {

@@ -22,15 +22,15 @@ import static net.minecraft.commands.Commands.argument;
 import static net.minecraft.commands.Commands.literal;
 
 /**
- * {@code /saturn debug ...}: turning the server profiler on and off and printing what it measured.
+ * {@code /saturn profiler ...}: turning the server profiler on and off and printing what it measured.
  *
  * <p>Commands are the only door Saturn offers to the profiler: there is no screen and no packet, so the numbers are
  * read where they are produced. A dependent mod that wants a graphical view of them reads
  * {@link ServerProfiling#snapshot} itself and sends whatever it likes over its own network.
  */
 @EventBusSubscriber
-public final class SaturnDebugCommand {
-    private SaturnDebugCommand() {
+public final class SaturnProfilerCommand {
+    private SaturnProfilerCommand() {
     }
 
     public static LiteralArgumentBuilder<CommandSourceStack> node() {
@@ -44,7 +44,7 @@ public final class SaturnDebugCommand {
                                     builder.createOffset(builder.getStart() + offset));
                         })
                         .executes(ctx -> status(ctx.getSource(), StringArgumentType.getString(ctx, "sources"))));
-        return literal("debug").requires(SaturnDebugCommand::mayView)
+        return literal("profiler").requires(SaturnProfilerCommand::mayView)
                 .then(literal("on").executes(ctx -> toggle(ctx.getSource(), true)))
                 .then(literal("off").executes(ctx -> toggle(ctx.getSource(), false)))
                 .then(statusNode);
@@ -56,10 +56,10 @@ public final class SaturnDebugCommand {
 
     private static int toggle(CommandSourceStack source, boolean enabled) {
         if (!ServerProfiling.setEnabled(source.getServer(), enabled)) {
-            source.sendFailure(Component.translatable("command.saturn.debug.unavailable"));
+            source.sendFailure(Component.translatable("command.saturn.profiler.unavailable"));
             return 0;
         }
-        source.sendSuccess(() -> Component.translatable(enabled ? "command.saturn.debug.enabled" : "command.saturn.debug.disabled"), true);
+        source.sendSuccess(() -> Component.translatable(enabled ? "command.saturn.profiler.enabled" : "command.saturn.profiler.disabled"), true);
         return 1;
     }
 
@@ -69,13 +69,13 @@ public final class SaturnDebugCommand {
         else for (String id : arguments.strip().split("\\s+")) {
             Source match = Source.byPath(id);
             if (match == null) {
-                source.sendFailure(Component.translatable("command.saturn.debug.unknown_source", id));
+                source.sendFailure(Component.translatable("command.saturn.profiler.unknown_source", id));
                 return 0;
             }
             selected.add(match);
         }
         if (!ServerProfiling.enabled(source.getServer())) {
-            source.sendFailure(Component.translatable("command.saturn.debug.disabled"));
+            source.sendFailure(Component.translatable("command.saturn.profiler.disabled"));
             return 0;
         }
         List<Source> sources = List.copyOf(selected);
@@ -87,19 +87,19 @@ public final class SaturnDebugCommand {
     private static void show(CommandSourceStack source, List<Source> selected, ProfilerWindowSnapshot snapshot) {
         if (!mayView(source)) return;
         if (snapshot.producers().isEmpty()) {
-            source.sendSuccess(() -> Component.translatable("command.saturn.debug.no_data"), false);
+            source.sendSuccess(() -> Component.translatable("command.saturn.profiler.no_data"), false);
             return;
         }
-        source.sendSuccess(() -> Component.translatable("command.saturn.debug.header", Profiler.WINDOW_TICKS, discarded(snapshot.droppedBatches())), false);
+        source.sendSuccess(() -> Component.translatable("command.saturn.profiler.header", Profiler.WINDOW_TICKS, discarded(snapshot.droppedBatches())), false);
         for (ProfilerWindowSnapshot.Producer producer : snapshot.producers()) {
-            source.sendSuccess(() -> Component.translatable("command.saturn.debug.producer", producer.name(), number(producer.sampleCount()),
+            source.sendSuccess(() -> Component.translatable("command.saturn.profiler.producer", producer.name(), number(producer.sampleCount()),
                     discarded(producer.discardedSpans())), false);
             for (Source selectedSource : selected) {
                 ProfilerSource registered = snapshot.sources().stream()
                         .filter(value -> value.id().equals(selectedSource.id())).findFirst().orElse(null);
                 if (registered == null) continue;
                 ProfilerWindowSnapshot.Statistics stats = producer.statistics(registered);
-                source.sendSuccess(() -> Component.translatable("command.saturn.debug.source", selectedSource.path(),
+                source.sendSuccess(() -> Component.translatable("command.saturn.profiler.source", selectedSource.path(),
                         millis(stats.minNanos()), millis(stats.averageNanos()), millis(stats.maxNanos()),
                         millis(stats.medianNanos()), millis(stats.p95Nanos()), millis(stats.p99Nanos()), number(stats.hits()), number(stats.samples())), false);
             }

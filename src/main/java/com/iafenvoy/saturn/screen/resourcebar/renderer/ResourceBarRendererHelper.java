@@ -1,7 +1,6 @@
 package com.iafenvoy.saturn.screen.resourcebar.renderer;
 
 import com.iafenvoy.saturn.config.SaturnClientConfig;
-import com.iafenvoy.saturn.config.SaturnClientConfig.ResourceBarIconLayout;
 import com.iafenvoy.saturn.data.resource.ResourceBar.Anchor;
 import com.iafenvoy.saturn.data.resource.ResourceBar.ValueDisplay;
 import com.iafenvoy.saturn.data.resourcebar.builtin.renderdata.OriginsRenderData;
@@ -20,7 +19,7 @@ final class ResourceBarRendererHelper {
         ResourceBarRenderState state = context.state();
         icon(state).ifPresent(icon -> renderIcon(context, icon));
         if (showValueDisplay && state.valueDisplay() != ValueDisplay.NONE) renderValueDisplay(context);
-        if (SaturnClientConfig.INSTANCE.resourceBars.showNames.getValue())
+        if (SaturnClientConfig.showNames())
             state.name().ifPresent(name -> renderName(context, name));
     }
 
@@ -36,7 +35,7 @@ final class ResourceBarRendererHelper {
 
     private static void renderIcon(Context context, OriginsRenderData data) {
         ResourceBarRenderState state = context.state();
-        boolean center = SaturnClientConfig.INSTANCE.resourceBars.iconLayout.getValue() == ResourceBarIconLayout.CENTER;
+        boolean center = SaturnClientConfig.iconsInCenter();
         int x = state.anchor() == Anchor.LEFT
                 ? center ? context.x() + state.renderData().width() + 3 : context.x() - 11
                 : center ? context.x() - 11 : context.x() + state.renderData().width() + 3;
@@ -49,7 +48,7 @@ final class ResourceBarRendererHelper {
         if (text.isBlank()) return;
         boolean left = state.anchor() == Anchor.LEFT;
         boolean hasSideIcon = icon(state).isPresent()
-                && SaturnClientConfig.INSTANCE.resourceBars.iconLayout.getValue() != ResourceBarIconLayout.CENTER;
+                && !SaturnClientConfig.iconsInCenter();
         int x = left ? context.x() - 3 - context.minecraft().font.width(text)
                 : context.x() + state.renderData().width() + 3;
         if (hasSideIcon) x += left ? -11 : 11;

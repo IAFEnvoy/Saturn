@@ -116,7 +116,7 @@ Saturn 只有两个实体附件：`SaturnAttachments.RESOURCE_HOLDER`（数值�
 - 资源条只在 `saturn:resource` 的 `bars` 里声明；外观由 `resource_bar_context` / `resource_bar_render_data_type` / `resource_bar_visibility_type` 三个注册表选。
 - 四个资源条 HUD 元素（左/右两列、目标、Boss）由 SaturnClient 在客户端初始化时注册（ResourceBarOverlay.registerEntries()，幂等）；内容侧不需要再调。
 - 物品角标：`render/item/IncompleteMarkerRenderer` 是 Saturn 注册的唯一 `IItemDecorator`，读 `saturn:incomplete`（§2.2）。
-- 客户端两个值（显示名字、图标位置）在 `SaturnClientConfig`。
+- 客户端两个值（显示名字、图标位置）由 `ModConfigSpec` 的客户端文件提供（`config/saturn-client.toml` 的 `resource_bars.show_names` / `resource_bars.icons_in_center`），代码里读 `SaturnClientConfig.showNames()` / `iconsInCenter()`。
 
 ### 3.7 轮盘（不在 Saturn）
 
@@ -128,7 +128,7 @@ Saturn 只有两个实体附件：`SaturnAttachments.RESOURCE_HOLDER`（数值�
 
 | 节点 | 侧 | 作用 |
 |---|---|---|
-| `debug on` / `off` / `status [sources…]` | 服务端 | 性能分析开关与读数（管理员） |
+| `profiler on` / `off` / `status [sources…]` | 服务端 | 性能分析开关与读数（管理员） |
 | `registries` | 服务端 | 4 个数据包注册表大小 + 23 个代码注册表的「大小 / 默认条目」 |
 | `attachment status` | 服务端 | 两个 Saturn 附件：资源项数、能力来源数、冷却数 |
 | `ability list [target]` | 服务端 | 这个身体持有的技能与来源 |
@@ -138,6 +138,8 @@ Saturn 只有两个实体附件：`SaturnAttachments.RESOURCE_HOLDER`（数值�
 | `resource get <id>` / `list` | 服务端 | 读执行者的资源数值 |
 | `resource set/add <targets> <id> <amount>` | 服务端 | 写数值（管理员），按 `min`/`max` 夹取 |
 | `hud` / `hud open` / `hud <element> reset` | 客户端 | HUD 框架诊断与编辑器 |
+
+**根别名与配置。** 每个服务端节点除了挂在 `/saturn` 下，还可以同时注册到根（`/profiler`、`/ability`、`/triggers`、`/resource`、`/registries`、`/attachment`），由 `config/saturn-common.toml` 的 `commands.<节点>` 控制，**默认 `true`**；根上已经有别的模组占了同一个字面量时跳过并记一行日志，不覆盖对方。文件由 NeoForge 的 `ModConfigSpec` 注册（`SaturnConfig.COMMON_SPEC` / `CLIENT_SPEC`），Saturn 不自带配置界面。
 
 技能与触发器的节点都在：运行时已经搬进 Saturn（§3.11）。
 
@@ -191,7 +193,7 @@ Saturn 自带完整的技能与触发器运行时，内容侧只提供规则与�
 
 ### 3.13 长按手势与按 id 的准则
 
-- `api/ItemUseCycle` + `event/ResolveItemUseCycleEvent`：**通用长按绑定**。一次右键点击后，`ItemUseCycles` 在 `RightClickItem` 上发一次 `ResolveItemUseCycleEvent`，认领的提供者给出一段手势（`id` / `durationTicks` / `animation` / `canStart` / `tick` / `finish` / `isConsumption`）；`Item` 的 `use` / `getUseDuration` / `getUseAnimation` / `finishUsingItem` 由 `saturn.mixins.json` 里的 `ItemUseCycleMixin` 接过来。原版使用组件（`consumable`、`blocks_attacks`、`kinetic_weapon`、可穿戴）优先，原生 `PASS` 之外的结果、原生替换了堆叠、原生给了时长，都会让框架让路。手势状态按实体与堆叠弱引用保存，客户端通过原版同步的使用标记自行发现。
+- `api/ItemUseCycle` + `event/ResolveItemUseCycleEvent`：**通用长按绑定**。一次右键点击后，`ItemUseCycles` 在 `RightClickItem` 上发一次 `ResolveItemUseCycleEvent`，认领的提供者给出一段手势（`id` / `durationTicks` / `animation` / `canStart` / `tick` / `finish` / `isConsumption`）；点击本身由 `saturn.mixins.json` 里的 `ItemStackUseCycleMixin` 接在 `ItemStack#use` 上（物品覆写了 `Item#use`、甚至不调 `super` 也照样接得到），`getUseDuration` / `getUseAnimation` / `finishUsingItem` 由 `ItemUseCycleMixin` 接在 `Item` 上。原版使用组件（`consumable`、`blocks_attacks`、`kinetic_weapon`、可穿戴）优先，原生 `PASS` 之外的结果、原生替换了堆叠、原生给了时长，都会让框架让路。手势状态按实体与堆叠弱引用保存，客户端通过原版同步的使用标记自行发现。
 - `advancement/IdentifierCriterionTrigger`：一个准则实现、按 id 判断是否算数（`definition` 可选，缺省匹配所有调用）。内容侧用 `DeferredRegister.create(Registries.TRIGGER_TYPES, "<你的命名空间>")` 为每个用途注册一个实例，再在对应时刻 `trigger(player, definitionId)`。
 
 ### 3.14 别名（`AliasManager`）
@@ -211,6 +213,7 @@ public MyMod(IEventBus bus) {
 - 为什么要包一层：注册表对“同一个对象挂在两个 id 下”会抛 `Adding duplicate value`（`MappedRegistry` 用 `IdentityHashMap` 查重）。所以 `MapCodec` 用 `xmap(identity, identity)` 重造一个等价实例，`Function` 用 `SimpleFunction` 委托，`FormulaVariable` 与 `ResourceBarContext` 用记录式委托。
 - 跳过：注册表已经占用的旧 id（内容侧自己还在用）、`saturn` 自己的命名空间、附件——附件 id 存在实体上，第二个 id 会变成第二份附件而不是改名。
 - 时机：`add` 必须在 mod 构造里调用；setup 之后再加会打一条 warn 并忽略。
+- **公式函数与公式变量不参与别名**：两者都按名字解析（函数看 `getName`，变量看 `names` / `prefixes`），第二个 id 不增加任何查找路径，只会让同一个名字在注册表里出现两次，而公式索引对重名直接抛异常。老数据写 `mxt:round` 或 `mxt:caster_` 本来就不经过注册表 id，因此不需要别名。
 - 与 NeoForge `DeferredRegister.addAlias` 的区别：那套只把别名记进 `IRegistryExtension` 并随注册表快照同步，当前版本的原版查找（`Registry#get` / `byNameCodec`）不经过 `resolve`；真正让旧 id 可解析的是这里的第二次注册。
 
 ## 4. Saturn 这边还没做（依赖方不要当作已有能力）
@@ -223,7 +226,7 @@ public MyMod(IEventBus bus) {
 | 灵气 / 池 / 银行 | 不在 Saturn；`Cost` + `CostTarget` + `CostContext.with(...)` 是你的通道。 |
 | 品质（quality） | `quality` 匹配条目与 `QualityRequirement` 都不在 Saturn。 |
 | 物品侧存储 | `DataStorageHolder` 只挂在 `AbilityAttachment` 上，没有物品组件。 |
-| profiler 界面与网络 | 只有 `/saturn debug`；要图形界面自己读 `ServerProfiling.snapshot`。 |
+| profiler 界面与网络 | 只有 `/saturn profiler`；要图形界面自己读 `ServerProfiling.snapshot`。 |
 | 测试 | 没有 GameTest。 |
 | 内置数据包定义 | Saturn 不含任何 JSON。 |
 

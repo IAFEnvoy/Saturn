@@ -1,5 +1,6 @@
 package com.iafenvoy.saturn;
 
+import com.iafenvoy.saturn.config.SaturnConfig;
 import com.iafenvoy.saturn.registry.SaturnAttachments;
 import com.iafenvoy.saturn.registry.SaturnContent;
 import com.iafenvoy.saturn.registry.SaturnLootRegistries;
@@ -7,8 +8,10 @@ import com.iafenvoy.saturn.registry.cache.RegistryCaches;
 import com.mojang.logging.LogUtils;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.fml.loading.FMLEnvironment;
 import org.slf4j.Logger;
@@ -26,7 +29,9 @@ public final class Saturn {
     public static final String MOD_ID = "saturn";
     public static final Logger LOGGER = LogUtils.getLogger();
 
-    public Saturn(IEventBus bus) {
+    public Saturn(IEventBus bus, ModContainer container) {
+        container.registerConfig(ModConfig.Type.COMMON, SaturnConfig.COMMON_SPEC);
+        container.registerConfig(ModConfig.Type.CLIENT, SaturnConfig.CLIENT_SPEC);
         SaturnAttachments.REGISTRY.register(bus);
         SaturnLootRegistries.register(bus);
         SaturnContent.register(bus);

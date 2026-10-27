@@ -102,7 +102,7 @@ Saturn 是**纯代码库**：没有任何内置定义（JSON）、没有测试�
 | `registry/SaturnRegistries.java` | 23 个 `DefaultedRegistry` + `all()`（原 30） |
 | `registry/SaturnDatapackRegistries.java` | 只注册 `resource` / `ability` / `trigger` / `incomplete`（原 43） |
 | `registry/SaturnAttachments.java` | 只注册 `resource_holder` / `ability_holder` |
-| `config/SaturnClientConfig.java` | 不依赖配置库，只有 `showNames` / `iconLayout` |
+| `config/SaturnClientConfig.java` | 改成读 `SaturnConfig` 的 `ModConfigSpec` 客户端文件（`show_names` / `icons_in_center`） |
 | `runtime/resulting/failures/CostFailure.java` | 去掉 `INSUFFICIENT_AURA` |
 | `runtime/ability/AbilityService.java` | 删掉元素亲和分支（`Ability` 不再有该字段），伤害倍率与准则改走 `AbilityHooks`，`word` 校验改走 `AbilityHooks.validate` |
 | `runtime/ability/AbilityEventBridge.java` | 品质门、法器技能、Curios 装备三处改走 `AbilityHooks` |
@@ -139,7 +139,7 @@ Saturn 是**纯代码库**：没有任何内置定义（JSON）、没有测试�
 13. **别名**：在 mod 构造里调用 `SaturnAliases.add("mxt")`；Saturn 在 LOWEST 优先级的 `RegisterEvent` 里把每个 `saturn:` 条目用 `mxt:` 再注册一次（值先包一层，避免 `Adding duplicate value`），所以既有数据包不必先改 id 就能解析。有改名过的条目先用 `SaturnAliases.set(custom)` 换规则。
 14. **键位**：`MxtKeyMappings` 保留全部内容键位与轮盘五个键、12 个槽位键；只有 HUD 编辑键改成读 `SaturnKeyMappings.HUD_LAYOUT`。轮盘的状态、页面、格子、HUD 网格、贴图与菜单全部留在 MiXianTu，不向 Saturn 注册。
 15. **profiler**：界面与 payload 留着，数据读 Saturn 的 `ServerProfiling.snapshot`；在 MiXianTu 构造里注册自己的 source 桶。
-16. **指令**：Saturn 带走 `/saturn`（debug / registries / attachment / ability list|cast|grant|revoke / triggers list|rules|publish / resource / 客户端 hud）。MiXianTu 的 `MxtCommand` 只剩内容附件段与 `/mxt wheel`；`AbilityCommand` 与 `TriggersCommand` 整体删除。
+16. **指令**：Saturn 带走 `/saturn`（profiler / registries / attachment / ability list|cast|grant|revoke / triggers list|rules|publish / resource / 客户端 hud），并按 `config/saturn-common.toml` 的 `commands.*`（默认开）把同一批节点再注册到根。MiXianTu 的 `MxtCommand` 只剩内容附件段与 `/mxt wheel`；`AbilityCommand` 与 `TriggersCommand` 整体删除。
 17. **KubeJS**：Saturn 的 `SaturnKubeJsPlugin` 提供 `SaturnActions` / `SaturnConditions` / `SaturnCosts` / `SaturnValues` / `SaturnResources`；MiXianTu 的插件删掉这五组绑定（继续用 `Mxt*` 全局名以免破坏脚本），或让脚本改用 `Saturn*`。
 
 ---

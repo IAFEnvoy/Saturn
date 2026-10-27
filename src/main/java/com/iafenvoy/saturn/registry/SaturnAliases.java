@@ -4,9 +4,6 @@ import com.iafenvoy.saturn.Saturn;
 import com.iafenvoy.saturn.api.AliasManager;
 import com.iafenvoy.saturn.data.resource.Resource;
 import com.iafenvoy.saturn.data.resourcebar.ResourceBarContext;
-import com.iafenvoy.saturn.util.formula.FormulaContext;
-import com.iafenvoy.saturn.util.formula.FormulaVariable;
-import com.iafenvoy.saturn.util.formula.SimpleFunction;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
@@ -20,7 +17,6 @@ import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import net.neoforged.neoforge.registries.RegisterEvent;
-import net.objecthunter.exp4j.function.Function;
 
 import java.util.*;
 
@@ -39,8 +35,14 @@ import java.util.*;
  * <p>{@link RegisterEvent} is handled at {@link EventPriority#LOWEST} so every register of ours has already added
  * its entries and bound its holders. For each entry the old id is then registered a second time with the same
  * value. The value is wrapped first: a registry throws {@code Adding duplicate value} when handed the same object
- * under two ids, so a codec is re-created through {@code xmap} with identity functions, and the three non-codec
- * registries (formula function, formula variable, resource-bar context) get a delegating instance.
+ * under two ids, so a codec is re-created through {@code xmap} with identity functions, and the resource-bar context
+ * registry gets a delegating instance.
+ *
+ * <p>The formula function and formula variable registries are deliberately **not** aliased: both are resolved by
+ * name (a function by {@code Function#getName}, a variable by its {@code names} and {@code prefixes}), so a second
+ * id adds no lookup path - it only puts two entries with the same name into one registry, which the formula index
+ * refuses. Old data that writes {@code mxt:round} or {@code mxt:caster_} needs no alias, because those names never
+ * went through a registry id in the first place.
  *
  * <p>An id the registry already holds is left alone, which is what keeps a content mod's own entries and a second
  * namespace's aliases from colliding. Attachments are deliberately not aliased: an attachment id is stored per
@@ -85,6 +87,10 @@ public final class SaturnAliases {
 
     private static <T> void alias(RegisterEvent event, DeferredRegister<T> register, Set<String> namespaces) {
         if (!register.getRegistryKey().equals(event.getRegistryKey())) return;
+        // Both are resolved by name, not by registry id, so a second id adds no lookup path and would put two
+        // entries with one name into the registry.
+        if (register.getRegistryKey().equals(SaturnResourceKeys.FORMULA_FUNCTION)
+                || register.getRegistryKey().equals(SaturnResourceKeys.FORMULA_VARIABLE)) return;
         Registry<T> registry = event.getRegistry(register.getRegistryKey());
         AliasManager aliasManager = manager;
         if (registry == null) return;
@@ -107,9 +113,6 @@ public final class SaturnAliases {
     private static <T> T wrap(T value) {
         if (value instanceof MapCodec<?> codec)
             return (T) codec.xmap(java.util.function.Function.identity(), java.util.function.Function.identity());
-        if (value instanceof Function function)
-            return (T) new SimpleFunction(function.getName(), function.getNumArguments(), function::apply);
-        if (value instanceof FormulaVariable variable) return (T) new AliasedVariable(variable);
         if (value instanceof ResourceBarContext context) return (T) new AliasedContext(context);
         return value;
     }
@@ -121,23 +124,6 @@ public final class SaturnAliases {
         registers.add(SaturnLootRegistries.CONDITIONS);
         registers.add(SaturnLootRegistries.FUNCTIONS);
         return registers;
-    }
-
-    private record AliasedVariable(FormulaVariable delegate) implements FormulaVariable {
-        @Override
-        public Set<String> names() {
-            return this.delegate.names();
-        }
-
-        @Override
-        public Set<String> prefixes() {
-            return this.delegate.prefixes();
-        }
-
-        @Override
-        public double value(String key, String suffix, FormulaContext context) {
-            return this.delegate.value(key, suffix, context);
-        }
     }
 
     private record AliasedContext(ResourceBarContext delegate) implements ResourceBarContext {
