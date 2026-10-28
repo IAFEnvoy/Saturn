@@ -14,7 +14,7 @@ import java.util.Optional;
  * The read side of the addressing the ability storage action writes with: one ability, named by its own holder in
  * the condition. Only a kind the ability declares may be read; anything else means "nothing to read".
  */
-record AbilityStorageReading(Holder<Ability> ability, Optional<DataStorageHolder> holder, Ability definition) {
+record AbilityStorageReading(Holder<Ability> ability, Optional<DataStorageHolder<Holder<Ability>>> holder, Ability definition) {
     // Read-only, so an entity that never had ability state is not given an empty attachment to carry around.
     // Missing state is not a failure: every kind reads as "nothing written yet" instead.
     static AbilityStorageReading of(Entity entity, Holder<Ability> ability) {

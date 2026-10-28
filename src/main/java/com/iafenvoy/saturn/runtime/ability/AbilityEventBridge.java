@@ -261,7 +261,7 @@ public final class AbilityEventBridge {
         for (Holder<Ability> ability : abilities.sources().keys()) {
             AbilityContext context = new AbilityContext(entity, ability, abilities, resources, formula, gameTime);
             AbilityType type = ability.value().type();
-            abilities.storage().tick(ability, context);
+            abilities.storage().tick(ability, context.storage());
             // A value that changed while ticking only recorded it: that flag, not a callback, is what decides
             // whether this attachment has to be synced.
             if (abilities.storage().isDirty(ability)) abilities.markDirty();

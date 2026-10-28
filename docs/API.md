@@ -169,6 +169,8 @@ Saturn 自带完整的技能与触发器运行时，内容侧只提供规则与�
 
 **技能**（`runtime.ability`）：`AbilityService`（施放/蓄力/通道/按一下的整条流程）、`AbilityActivationService`（客户端按键与脚本的激活入口）、`AbilityGrantService`（按来源授予与收回）、`AbilityModifierService`（被动的属性修正）、`PassiveAttributeService`（属性来源表）、`AbilityStorage`（每技能状态）、`AbilityFeedback`、`AbilityEventBridge`（装备/物品/触发器的接线）。
 
+**状态容器**（`data.storage`）：`DataStorageHolder<T>` 是"某个定义的可变状态"，泛型参数就是**地址本身**，不是 `Holder<T>`——技能写 `DataStorageHolder<Holder<Ability>>`（键是 holder），地址是 `UUID`、`ResourceKey`、名字或别的什么就写那个类型，容器照用；状态种类按类寻址，一对（地址, 种类）正好一个值。要存盘时给它 `codec(Codec<T>)`（如 `DataStorageHolder.codec(Ability.CODEC)`），地址没有可序列化形式就不给 codec、只用内存里的那份。值 `DataStorage` 自己 `copy()`、自己记变更，tick 收的是 `DataStorageContext`（身体 / 公式 / 当前 tick，不含任何技能字段）；节奏（`tickInterval` 之类）仍归各自的宿主循环。存档里一条是 `{"id": <地址>, "value": …}`，定义离开数据包时只丢那一条。
+
 **内置技能类型**：`active`、`triggered`、`modifier`、`aura`、`interval`、`channelled`、`targeted`、`empty`、`upkeep`。自己的类型注册到 `ABILITY_TYPE`，实现 `AbilityType`；要跑动作的再加 `AbilityEffect` / `ActionCarrier`，要长按的加 `Togglable`，要读时钟的加 `CooldownSource`，要通道的加 `ChannelSource`。
 
 **触发器**（`runtime.trigger`）：`TriggerDispatcher`（订阅表 + 发布）、`TriggerRuleService`（`saturn:trigger` 规则：条件、概率、冷却）、`TriggerPublishing`、`TriggerSubscription`、`TriggerRehydrators`、`TriggerLifecycleEvents`，以及原版准则的两个桥（`VanillaTriggerBridge` / `VanillaTriggerPollBridge`）。规则的冷却记在 `SaturnAttachments.TRIGGER_COOLDOWNS`。

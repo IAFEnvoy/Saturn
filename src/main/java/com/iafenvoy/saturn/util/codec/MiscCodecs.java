@@ -8,26 +8,19 @@ import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentSerialization;
-import net.minecraft.world.phys.Vec2;
 
 import java.util.List;
 import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 public final class MiscCodecs {
-    public static final Codec<Double> NON_NEGATIVE = Codec.doubleRange(0.0D, Double.MAX_VALUE);
+    public static final Codec<String> NOT_BLANK_STRING = checked(Codec.STRING, value -> !value.isBlank());
     public static final Codec<Double> FINITE = Codec.DOUBLE.validate(value -> Double.isFinite(value) ? DataResult.success(value) : DataResult.error(() -> "Number value must be finite: " + value));
-
-    // Two element [x, z]; secret realm borders use it for their center.
-    public static final Codec<Vec2> HORIZONTAL_PAIR = Codec.DOUBLE.listOf().comapFlatMap(
-            values -> values.size() == 2
-                    ? DataResult.success(new Vec2(values.getFirst().floatValue(), values.get(1).floatValue()))
-                    : DataResult.error(() -> "Expected [x, z] with exactly two numbers"),
-            value -> List.of((double) value.x, (double) value.y));
 
     // A bare JSON string is a translation key and an object is a full component, so a definition stays readable
     // without losing styling.
-    public static final Codec<Component> TRANSLATABLE_COMPONENT = Codec.either(Codec.STRING, ComponentSerialization.CODEC)
-            .xmap(e -> e.map(Component::translatable, Function.identity()), Either::right);
+    public static final Codec<Component> TRANSLATABLE_COMPONENT = Codec.either(Codec.STRING, ComponentSerialization.CODEC).xmap(e -> e.map(Component::translatable, Function.identity()), Either::right);
 
     /**
      * Two fields read as one group: {@code RecordCodecBuilder.group} stops at sixteen components, so a definition
@@ -50,5 +43,21 @@ public final class MiscCodecs {
         } catch (NumberFormatException exception) {
             return DataResult.error(() -> "Invalid integer map key: " + value);
         }
+    }
+
+    public static <T> DataResult<T> mapOrError(Supplier<T> supplier) {
+        try {
+            return DataResult.success(supplier.get());
+        } catch (Exception e) {
+            return DataResult.error(() -> "Error mapping object: " + e.getMessage());
+        }
+    }
+
+    public static Codec<String> string(String regex) {
+        return checked(Codec.STRING, value -> value.matches(regex));
+    }
+
+    public static <A> Codec<A> checked(Codec<A> codec, Predicate<A> validator) {
+        return codec.validate(x -> validator.test(x) ? DataResult.success(x) : DataResult.error(() -> "Invalid configuration value"));
     }
 }

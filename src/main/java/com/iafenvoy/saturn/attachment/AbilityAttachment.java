@@ -31,17 +31,17 @@ public final class AbilityAttachment extends AbstractChangeTrackable {
     public static final MapCodec<AbilityAttachment> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
             SourceLedger.codec(Ability.CODEC).lenientOptionalFieldOf("sources", new SourceLedger<>()).forGetter(AbilityAttachment::sources),
             Ability.CODEC.lenientOptionalFieldOf("channelled_ability").forGetter(AbilityAttachment::channelledAbility),
-            DataStorageHolder.CODEC.lenientOptionalFieldOf("storage").forGetter(attachment -> Optional.of(attachment.storage))
+            DataStorageHolder.codec(Ability.CODEC).lenientOptionalFieldOf("storage").forGetter(attachment -> Optional.of(attachment.storage))
     ).apply(i, AbilityAttachment::new));
     private final SourceLedger<Holder<Ability>> sources;
-    private final DataStorageHolder storage;
+    private final DataStorageHolder<Holder<Ability>> storage;
     private Optional<Holder<Ability>> channelledAbility;
 
     public AbilityAttachment() {
         this(new SourceLedger<>(), Optional.empty(), Optional.empty());
     }
 
-    private AbilityAttachment(SourceLedger<Holder<Ability>> sources, Optional<Holder<Ability>> channelledAbility, Optional<DataStorageHolder> storage) {
+    private AbilityAttachment(SourceLedger<Holder<Ability>> sources, Optional<Holder<Ability>> channelledAbility, Optional<DataStorageHolder<Holder<Ability>>> storage) {
         this.sources = sources.copy();
         this.channelledAbility = channelledAbility;
         this.storage = storage.orElseGet(DataStorageHolder::new);
@@ -51,7 +51,7 @@ public final class AbilityAttachment extends AbstractChangeTrackable {
         return this.sources;
     }
 
-    public DataStorageHolder storage() {
+    public DataStorageHolder<Holder<Ability>> storage() {
         return this.storage;
     }
 

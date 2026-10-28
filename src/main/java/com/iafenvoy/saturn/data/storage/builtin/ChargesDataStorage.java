@@ -1,7 +1,7 @@
 package com.iafenvoy.saturn.data.storage.builtin;
 
-import com.iafenvoy.saturn.data.ability.AbilityContext;
 import com.iafenvoy.saturn.data.storage.DataStorage;
+import com.iafenvoy.saturn.data.storage.DataStorageContext;
 import com.iafenvoy.saturn.util.MiscUtil;
 import com.iafenvoy.saturn.util.codec.OptionalCodecs;
 import com.iafenvoy.saturn.util.formula.NumberProvider;
@@ -51,7 +51,7 @@ public final class ChargesDataStorage extends DataStorage {
     // The last write is the interval's anchor, and both spending and refilling make one, so this may run every tick
     // and still add at most one step per interval. A pool that is full or was never spent writes nothing.
     @Override
-    public void tick(AbilityContext context) {
+    public void tick(DataStorageContext context) {
         double left = this.remaining.orElse(Double.NaN);
         if (!Double.isFinite(left)) return;
         double maximum = this.maximum.evaluate(context.formula());

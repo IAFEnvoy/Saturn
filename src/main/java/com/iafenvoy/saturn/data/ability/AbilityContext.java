@@ -2,6 +2,7 @@ package com.iafenvoy.saturn.data.ability;
 
 import com.iafenvoy.saturn.attachment.AbilityAttachment;
 import com.iafenvoy.saturn.attachment.ResourceHolderAttachment;
+import com.iafenvoy.saturn.data.storage.DataStorageContext;
 import com.iafenvoy.saturn.util.formula.FormulaContext;
 import net.minecraft.core.Holder;
 import net.minecraft.world.entity.LivingEntity;
@@ -14,5 +15,11 @@ public record AbilityContext(LivingEntity holder, Holder<Ability> ability, Abili
                              ResourceHolderAttachment resources, FormulaContext formula, long gameTime) {
     public Ability definition() {
         return this.ability.value();
+    }
+
+    // What stored values tick on: they see the body, the formula and the tick, never the ability that happens to own
+    // them, so the same kinds serve content that is not an ability.
+    public DataStorageContext storage() {
+        return new DataStorageContext(this.holder, this.formula, this.gameTime);
     }
 }
