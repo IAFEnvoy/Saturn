@@ -26,8 +26,9 @@ import java.util.Optional;
  * describes is drawn by the HUD framework's single renderer. Gathering here rather than in the entries is what
  * lets the entries stay about placement, and bars are split by their own anchor into a left and a right pass.
  *
- * <p>Only resource definitions are gathered. Any other bar a world wants to show - a pool whose value is not a
- * {@code saturn:resource} - is a HUD entry of its own, registered through {@link HudManager}, exactly like these two.
+ * <p>Resource definitions are gathered here. A bar a world wants to show for a pool that is not a
+ * {@code saturn:resource} comes from a {@link ResourceBarContributor} its own mod registers, and lands in the same
+ * stack.
  */
 public final class ResourceBarOverlay {
     private static final int OVERLAY_GAP = 8;
@@ -46,6 +47,7 @@ public final class ResourceBarOverlay {
         Registry<Resource> resources = player.level().registryAccess().lookupOrThrow(SaturnResourceKeys.RESOURCE);
         List<ResourceBarRenderState> collected = new ArrayList<>();
         collectResources(collected, resources, player, Layout.SELF_HUD, anchor);
+        ResourceBarContributors.collect(player, Layout.SELF_HUD, anchor, collected);
         return stack(sort(collected));
     }
 
@@ -54,7 +56,10 @@ public final class ResourceBarOverlay {
         if (minecraft.level == null) return List.of();
         Registry<Resource> resources = target.level().registryAccess().lookupOrThrow(SaturnResourceKeys.RESOURCE);
         List<ResourceBarRenderState> collected = new ArrayList<>();
-        for (Anchor anchor : Anchor.values()) collectResources(collected, resources, target, layout, anchor);
+        for (Anchor anchor : Anchor.values()) {
+            collectResources(collected, resources, target, layout, anchor);
+            ResourceBarContributors.collect(target, layout, anchor, collected);
+        }
         return stack(sort(collected));
     }
 

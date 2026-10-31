@@ -99,12 +99,14 @@ public final class ServerProfiling {
         public static final Source ABILITY_CAST = register("ability/cast", ABILITY);
         public static final Source ABILITY_CHANNEL = register("ability/channel", ABILITY);
 
+        private final String modId;
         private final String path;
         private final String id;
         private final Source parent;
         private final int index;
 
-        private Source(String path, Source parent, int index) {
+        private Source(String modId, String path, Source parent, int index) {
+            this.modId = modId;
             this.path = path;
             this.id = "server/" + path;
             this.parent = parent;
@@ -113,16 +115,29 @@ public final class ServerProfiling {
 
         // The id is what a command names and what a translation key is built from; a null or blank one is refused.
         public static Source register(String path) {
-            return register(path, null);
+            return register(Saturn.MOD_ID, path, null);
         }
 
         public static Source register(String path, Source parent) {
+            return register(Saturn.MOD_ID, path, parent);
+        }
+
+        /**
+         * A bucket a dependent mod owns: its translation keys are {@code <mod id>.profiling.<mod id>.<path>}, which is
+         * the shape content registered before this was a library, so a mod that moved here keeps its own lang file.
+         */
+        public static Source register(String modId, String path) {
+            return register(modId, path, null);
+        }
+
+        public static Source register(String modId, String path, Source parent) {
+            if (modId == null || modId.isBlank()) throw new IllegalArgumentException("A profiling source needs a mod id");
             if (path == null || path.isBlank())
                 throw new IllegalArgumentException("A profiling source needs an id");
             String id = "server/" + path;
             Source existing = REGISTERED.get(id);
             if (existing != null) return existing;
-            Source created = new Source(path, parent, REGISTERED.size());
+            Source created = new Source(modId, path, parent, REGISTERED.size());
             REGISTERED.put(id, created);
             return created;
         }
@@ -152,7 +167,7 @@ public final class ServerProfiling {
         }
 
         public String translationKey() {
-            return "saturn.profiling.saturn." + this.path.replace('/', '.');
+            return this.modId + ".profiling." + this.modId + "." + this.path.replace('/', '.');
         }
 
         // What this bucket counts, one line, shown while the pointer rests on a row's source label.

@@ -102,6 +102,7 @@ Saturn 只有两个实体附件：`SaturnAttachments.RESOURCE_HOLDER`（数值�
 
 - 定义：`saturn:resource`（`default_value` / `min` / `max` / `icon` / `particle_color` / `bars`）。
 - 读写：`entity.getData(SaturnAttachments.RESOURCE_HOLDER)` 的 `get` / `set`；批量扣取用 `ResourceTransactions.tryConsume`（全有或全无）。
+- 玩家登录时按 `default_value` 播种一次（`ResourceSeeding`）：只填还没有条目的数值，已有的值不动，所以重登不会改余额。没有这一步，一条从没被改动过的数值读出来就是 `0`，写进 `default_value` 也付不起消耗。
 - `FormulaContext.withResource(resource)` 让该资源的公式读到自己的数值；`ResourceService.formulaContext(...)` 是现成包装。
 
 ### 3.5 公式
@@ -113,7 +114,8 @@ Saturn 只有两个实体附件：`SaturnAttachments.RESOURCE_HOLDER`（数值�
 ### 3.6 HUD 与资源条
 
 - 加 HUD：实现 `HudEntry`（或继承 `AbstractHudEntry`），客户端初始化时 `HudManager.register(entry)`；位置由 `HudAnchor`（8 锚点）与 `HudPlacement` 决定，玩家在 `HudEditScreen` 里拖；布局落在 `config/saturn/hud.json`。
-- 资源条只在 `saturn:resource` 的 `bars` 里声明；外观由 `resource_bar_context` / `resource_bar_render_data_type` / `resource_bar_visibility_type` 三个注册表选。
+- 资源条：写在 `saturn:resource` 的 `bars` 里的按资源画，外观由 `resource_bar_context` / `resource_bar_render_data_type` / `resource_bar_visibility_type` 三个注册表选。`minimum == maximum` 的条不画填充：宽度为零的区间没有比例可言，读成满条会把"上限等于当前值"（含上限被算成 0）画成满格。
+- 不属于任何 `saturn:resource` 的条（例如某个池子没有资源定义）：实现 `ResourceBarContributor`，客户端初始化时 `ResourceBarContributors.register(contributor)`；回调收到 `(LivingEntity, Layout, Anchor, List<ResourceBarRenderState>)`，加进去的条目与资源声明的条一起排序、堆叠、分左右列。列的收集每帧每列一次，回调里不要做重活。
 - 四个资源条 HUD 元素（左/右两列、目标、Boss）由 SaturnClient 在客户端初始化时注册（ResourceBarOverlay.registerEntries()，幂等）；内容侧不需要再调。
 - 物品角标：`render/item/IncompleteMarkerRenderer` 是 Saturn 注册的唯一 `IItemDecorator`，读 `saturn:incomplete`（§2.2）。
 - 客户端两个值（显示名字、图标位置）由 `ModConfigSpec` 的客户端文件提供（`config/saturn-client.toml` 的 `resource_bars.show_names` / `resource_bars.icons_in_center`），代码里读 `SaturnClientConfig.showNames()` / `iconsInCenter()`。

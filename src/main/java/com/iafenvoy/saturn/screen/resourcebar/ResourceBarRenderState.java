@@ -20,7 +20,8 @@ public record ResourceBarRenderState(ResourceBarContext context, Anchor anchor, 
     public double percentage() {
         if (!Double.isFinite(this.current) || !Double.isFinite(this.minimum) || !Double.isFinite(this.maximum))
             return 0.0D;
-        return this.maximum == this.minimum ? 1.0D
+        // A range with no width has nothing to fill: reading it as full drew a value pinned at its cap as a full bar.
+        return this.maximum == this.minimum ? 0.0D
                 : Math.clamp((this.current - this.minimum) / (this.maximum - this.minimum), 0.0D, 1.0D);
     }
 

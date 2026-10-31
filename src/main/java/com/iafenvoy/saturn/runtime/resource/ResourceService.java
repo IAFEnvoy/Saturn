@@ -1,6 +1,7 @@
 package com.iafenvoy.saturn.runtime.resource;
 
 import com.iafenvoy.saturn.attachment.ResourceHolderAttachment;
+import com.iafenvoy.saturn.attachment.ResourceHolderAttachment.Audit;
 import com.iafenvoy.saturn.data.resource.Resource;
 import com.iafenvoy.saturn.registry.SaturnDatapackRegistries;
 import com.iafenvoy.saturn.registry.SaturnResourceKeys;
@@ -89,6 +90,31 @@ public final class ResourceService {
 
     private static Bounds bounds(Resource definition, FormulaContext context) {
         return resolveBounds(definition, context).orElse(null);
+    }
+
+    /**
+     * Brings a value already on the attachment back onto the bounds the pack defines now. The stored bounds travel
+     * with every write, so a datapack whose cap changed since the last write leaves a stale one behind; that is
+     * refreshed here. A value that was written while the cap was zero could never have had headroom and is seeded
+     * from the default again - every other value is only clamped into the new bounds, never refilled.
+     */
+    public static Result rebind(ResourceHolderAttachment holder, Holder<Resource> resource, FormulaContext context) {
+        if (!holder.contains(resource)) return Result.invalid();
+        Resource definition = resource.value();
+        Bounds bounds = bounds(definition, context);
+        if (bounds == null) return Result.invalid();
+        Audit previous = holder.audit(resource);
+        double current = holder.get(resource);
+        double value = clamp(current, bounds);
+        if (previous.maxSnapshot() <= 0.0D && bounds.max() > 0.0D) {
+            double seeded = definition.defaultValue().evaluate(context);
+            if (Double.isFinite(seeded)) value = clamp(seeded, bounds);
+        }
+        boolean sameBounds = Double.compare(previous.minSnapshot(), bounds.min()) == 0
+                && Double.compare(previous.maxSnapshot(), bounds.max()) == 0;
+        if (sameBounds && Double.compare(value, current) == 0) return Result.unchanged(value);
+        holder.set(resource, value, bounds.min(), bounds.max(), previous.lastChangedTick(), "rebind");
+        return Result.changed(value);
     }
 
     private static double clamp(double value, Bounds bounds) {
