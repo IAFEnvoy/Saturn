@@ -29,9 +29,20 @@ import java.util.function.Supplier;
 
 @EventBusSubscriber
 public final class ItemUseCycles {
-    // Entity instances separate logical sides and reconnects; values never strongly retain their weak keys.
-    private static final Map<LivingEntity, Session> SESSIONS = Collections.synchronizedMap(new WeakHashMap<>());
+    // Entity equality is the numeric id, and both sides of a singleplayer game live in one JVM, so one table would let
+    // the server's player evict the client's - each logical side keeps its own.
+    private static final Map<LivingEntity, Session> CLIENT_SESSIONS = Collections.synchronizedMap(new WeakHashMap<>());
+    private static final Map<LivingEntity, Session> SERVER_SESSIONS = Collections.synchronizedMap(new WeakHashMap<>());
+    // Values never strongly retain their weak keys.
     private static final Map<ItemStack, Session> STACKS = Collections.synchronizedMap(new WeakHashMap<>());
+
+    private static Map<LivingEntity, Session> sessions(LivingEntity holder) {
+        return sessions(holder.level().isClientSide());
+    }
+
+    private static Map<LivingEntity, Session> sessions(boolean clientSide) {
+        return clientSide ? CLIENT_SESSIONS : SERVER_SESSIONS;
+    }
 
     private ItemUseCycles() {
     }
@@ -56,7 +67,7 @@ public final class ItemUseCycles {
         if (hand == null || !available(holder, stack) || cycle.durationTicks() <= 0 || !cycle.canStart(holder, stack))
             return false;
         Session session = new Session(holder, hand, cycle);
-        SESSIONS.put(holder, session);
+        sessions(holder).put(holder, session);
         session.attach(stack);
         return true;
     }
@@ -82,17 +93,17 @@ public final class ItemUseCycles {
 
     @Nullable
     public static ItemUseCycle current(LivingEntity holder) {
-        Session session = SESSIONS.get(holder);
+        Session session = sessions(holder).get(holder);
         return session == null ? null : session.cycle;
     }
 
     public static InteractionResult use(Player holder, InteractionHand hand, Supplier<InteractionResult> nativeUse) {
-        Session session = SESSIONS.get(holder);
+        Session session = sessions(holder).get(holder);
         if (session == null || session.started) return nativeUse.get();
         ItemStack before = holder.getItemInHand(hand).copy();
         try {
             InteractionResult result = nativeUse.get();
-            if (result != InteractionResult.PASS || holder.isUsingItem() || SESSIONS.get(holder) != session
+            if (result != InteractionResult.PASS || holder.isUsingItem() || sessions(holder).get(holder) != session
                     || !ItemStack.matches(before, holder.getItemInHand(hand))) {
                 close(holder, session);
                 return result;
@@ -115,7 +126,7 @@ public final class ItemUseCycles {
         holder.startUsingItem(hand);
         // LocalPlayer may set its predicted use flag even when a later Start listener cancelled the gesture.
         if (!holder.isUsingItem() || holder.getUseItemRemainingTicks() <= 0
-                || holder.getUseItem() != holder.getItemInHand(hand) || SESSIONS.get(holder) != session) {
+                || holder.getUseItem() != holder.getItemInHand(hand) || sessions(holder).get(holder) != session) {
             holder.stopUsingItem();
             close(holder);
             return InteractionResult.FAIL;
@@ -125,7 +136,7 @@ public final class ItemUseCycles {
 
     public static int duration(LivingEntity holder, ItemStack stack, int nativeDuration) {
         if (nativeDuration != 0) {
-            Session session = SESSIONS.get(holder);
+            Session session = sessions(holder).get(holder);
             if (session != null && holder.getItemInHand(session.hand) == stack) close(holder, session);
             return nativeDuration;
         }
@@ -147,7 +158,7 @@ public final class ItemUseCycles {
         close(holder);
         Session session = new Session(holder, holder.getUsedItemHand(), cycle);
         session.started = true;
-        SESSIONS.put(holder, session);
+        sessions(holder).put(holder, session);
         session.attach(stack);
         return session;
     }
@@ -160,7 +171,7 @@ public final class ItemUseCycles {
     }
 
     public static ItemStack finish(Level level, LivingEntity holder, ItemStack stack, Supplier<ItemStack> nativeFinish) {
-        Session active = SESSIONS.get(holder);
+        Session active = sessions(holder).get(holder);
         // Reentrant callbacks may have emptied the live target before the normal match can recognize it.
         if (active != null && active.stack.get() == stack && (active.finishing || active.completed)) return stack;
         Session session = matching(holder, stack);
@@ -188,7 +199,7 @@ public final class ItemUseCycles {
     }
 
     public static boolean isConsumption(LivingEntity holder, ItemStack original) {
-        Session session = SESSIONS.get(holder);
+        Session session = sessions(holder).get(holder);
         if (session != null && session.started)
             return session.completed && session.cycle.isConsumption()
                     && ItemStack.isSameItemSameComponents(original, session.finishedStack);
@@ -197,7 +208,7 @@ public final class ItemUseCycles {
 
     @Nullable
     private static Session matching(LivingEntity holder, ItemStack stack) {
-        Session session = SESSIONS.get(holder);
+        Session session = sessions(holder).get(holder);
         if (session == null || stack.isEmpty() || holder.isRemoved()) return null;
         ItemStack held = holder.getItemInHand(session.hand);
         if (held != stack) return null;
@@ -217,7 +228,7 @@ public final class ItemUseCycles {
     public static void onStart(LivingEntityUseItemEvent.Start event) {
         Session session = matching(event.getEntity(), event.getItem());
         if (session == null) {
-            Session prepared = SESSIONS.get(event.getEntity());
+            Session prepared = sessions(event.getEntity()).get(event.getEntity());
             if (prepared != null && !prepared.started) close(event.getEntity(), prepared);
             return;
         }
@@ -232,7 +243,7 @@ public final class ItemUseCycles {
         LivingEntity holder = event.getEntity();
         Session session = matching(holder, event.getItem());
         if (session == null) {
-            boolean interrupted = SESSIONS.containsKey(holder);
+            boolean interrupted = sessions(holder).containsKey(holder);
             if (interrupted) {
                 event.setCanceled(true);
                 interrupt(holder);
@@ -253,7 +264,7 @@ public final class ItemUseCycles {
 
     @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true)
     public static void onTickCancelled(LivingEntityUseItemEvent.Tick event) {
-        if ((event.isCanceled() || event.getDuration() <= 0) && SESSIONS.containsKey(event.getEntity())) {
+        if ((event.isCanceled() || event.getDuration() <= 0) && sessions(event.getEntity()).containsKey(event.getEntity())) {
             interrupt(event.getEntity());
         }
     }
@@ -297,21 +308,21 @@ public final class ItemUseCycles {
     }
 
     public static void close(LivingEntity holder) {
-        Session session = SESSIONS.remove(holder);
+        Session session = sessions(holder).remove(holder);
         if (session != null) session.detach();
     }
 
     private static void close(LivingEntity holder, Session session) {
-        if (SESSIONS.remove(holder, session)) session.detach();
+        if (sessions(holder).remove(holder, session)) session.detach();
     }
 
     public static void clear(boolean clientSide) {
         ArrayList<LivingEntity> holders;
-        synchronized (SESSIONS) {
-            holders = new ArrayList<>(SESSIONS.keySet());
+        Map<LivingEntity, Session> table = sessions(clientSide);
+        synchronized (table) {
+            holders = new ArrayList<>(table.keySet());
         }
-        for (LivingEntity holder : holders)
-            if (holder.level().isClientSide() == clientSide) close(holder);
+        for (LivingEntity holder : holders) close(holder);
     }
 
     private static final class Session {

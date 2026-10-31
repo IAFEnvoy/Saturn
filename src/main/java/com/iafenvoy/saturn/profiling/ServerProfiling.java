@@ -131,7 +131,8 @@ public final class ServerProfiling {
         }
 
         public static Source register(String modId, String path, Source parent) {
-            if (modId == null || modId.isBlank()) throw new IllegalArgumentException("A profiling source needs a mod id");
+            if (modId == null || modId.isBlank())
+                throw new IllegalArgumentException("A profiling source needs a mod id");
             if (path == null || path.isBlank())
                 throw new IllegalArgumentException("A profiling source needs an id");
             String id = "server/" + path;

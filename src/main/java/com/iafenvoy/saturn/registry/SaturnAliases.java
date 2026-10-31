@@ -19,6 +19,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 import net.neoforged.neoforge.registries.RegisterEvent;
 
 import java.util.*;
+import java.util.function.Function;
 
 /**
  * The old ids of the built-in entries, so data written before the split keeps resolving.
@@ -112,7 +113,7 @@ public final class SaturnAliases {
     @SuppressWarnings("unchecked")
     private static <T> T wrap(T value) {
         if (value instanceof MapCodec<?> codec)
-            return (T) codec.xmap(java.util.function.Function.identity(), java.util.function.Function.identity());
+            return (T) codec.xmap(Function.identity(), Function.identity());
         if (value instanceof ResourceBarContext context) return (T) new AliasedContext(context);
         return value;
     }

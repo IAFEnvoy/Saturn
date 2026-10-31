@@ -1,13 +1,13 @@
 package com.iafenvoy.saturn.command;
 
 import com.iafenvoy.saturn.Saturn;
+import com.iafenvoy.saturn.attachment.AbilityAttachment;
+import com.iafenvoy.saturn.attachment.ResourceHolderAttachment;
 import com.iafenvoy.saturn.command.server.AbilityCommand;
 import com.iafenvoy.saturn.command.server.ProfilerCommand;
 import com.iafenvoy.saturn.command.server.ResourceCommand;
 import com.iafenvoy.saturn.command.server.TriggersCommand;
 import com.iafenvoy.saturn.config.SaturnConfig;
-import com.iafenvoy.saturn.attachment.AbilityAttachment;
-import com.iafenvoy.saturn.attachment.ResourceHolderAttachment;
 import com.iafenvoy.saturn.data.storage.builtin.CooldownDataStorage;
 import com.iafenvoy.saturn.registry.SaturnAttachments;
 import com.iafenvoy.saturn.registry.SaturnDatapackRegistries;
