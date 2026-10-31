@@ -1,4 +1,4 @@
-package com.iafenvoy.saturn.command;
+package com.iafenvoy.saturn.command.server;
 
 import com.iafenvoy.saturn.profiling.Profiler;
 import com.iafenvoy.saturn.profiling.ProfilerSource;
@@ -29,8 +29,8 @@ import static net.minecraft.commands.Commands.literal;
  * {@link ServerProfiling#snapshot} itself and sends whatever it likes over its own network.
  */
 @EventBusSubscriber
-public final class SaturnProfilerCommand {
-    private SaturnProfilerCommand() {
+public final class ProfilerCommand {
+    private ProfilerCommand() {
     }
 
     public static LiteralArgumentBuilder<CommandSourceStack> node() {
@@ -44,7 +44,7 @@ public final class SaturnProfilerCommand {
                                     builder.createOffset(builder.getStart() + offset));
                         })
                         .executes(ctx -> status(ctx.getSource(), StringArgumentType.getString(ctx, "sources"))));
-        return literal("profiler").requires(SaturnProfilerCommand::mayView)
+        return literal("profiler").requires(ProfilerCommand::mayView)
                 .then(literal("on").executes(ctx -> toggle(ctx.getSource(), true)))
                 .then(literal("off").executes(ctx -> toggle(ctx.getSource(), false)))
                 .then(statusNode);

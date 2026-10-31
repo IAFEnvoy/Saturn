@@ -115,7 +115,7 @@ public final class DataStorageHolder<T> {
     public boolean isDirty(T id) {
         boolean dirty = false;
         for (Map.Entry<Address<T>, DataStorage> entry : this.values.entrySet())
-            if (entry.getKey().id().equals(id)) dirty |= entry.getValue().isDirty();
+            if (entry.getKey().id().equals(id)) dirty |= entry.getValue().checkDirty();
         return dirty;
     }
 

@@ -20,21 +20,21 @@ import static net.minecraft.commands.Commands.literal;
  * answered. It prints what the framework actually holds - every registered element, where it is, whether it is
  * visible and movable, and how many blocks it offers to draw.
  */
-public final class SaturnHudCommand {
-    private SaturnHudCommand() {
+public final class HudCommand {
+    private HudCommand() {
     }
 
     public static LiteralArgumentBuilder<CommandSourceStack> node() {
         return literal("hud")
-                .executes(SaturnHudCommand::list)
-                .then(literal("open").executes(ctx -> {
+                .executes(HudCommand::list)
+                .then(literal("open").executes(_ -> {
                     HudManager.openEditor();
                     return 1;
                 }))
                 .then(argument("element", StringArgumentType.string())
                         .suggests((_, builder) -> SharedSuggestionProvider.suggest(
                                 HudManager.moveableEntries().stream().map(HudEntry::layoutKey), builder))
-                        .then(literal("reset").executes(SaturnHudCommand::reset)));
+                        .then(literal("reset").executes(HudCommand::reset)));
     }
 
     private static int list(CommandContext<CommandSourceStack> context) {

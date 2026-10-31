@@ -1,5 +1,6 @@
-package com.iafenvoy.saturn.command;
+package com.iafenvoy.saturn.command.server;
 
+import com.iafenvoy.saturn.command.ServerCommandManager;
 import com.iafenvoy.saturn.data.trigger.TriggerContext;
 import com.iafenvoy.saturn.data.trigger.TriggerRule;
 import com.iafenvoy.saturn.registry.SaturnRegistries;
@@ -36,8 +37,8 @@ import static net.minecraft.commands.Commands.literal;
  *
  * <p>Subscriptions are never persisted, so this is the only way to see what is listening.
  */
-public final class SaturnTriggersCommand {
-    private SaturnTriggersCommand() {
+public final class TriggersCommand {
+    private TriggersCommand() {
     }
 
     public static LiteralArgumentBuilder<CommandSourceStack> node(CommandBuildContext context) {
@@ -50,7 +51,7 @@ public final class SaturnTriggersCommand {
                         .then(argument("signal", IdentifierArgument.id())
                                 .suggests((ctx, builder) -> suggestRuleSignals(builder))
                                 .executes(ctx -> listTriggerRules(ctx.getSource(), IdentifierArgument.getId(ctx, "signal")))))
-                .then(literal("publish").requires(SaturnCommands::mayChange)
+                .then(literal("publish").requires(ServerCommandManager::mayChange)
                         .then(argument("signal", IdentifierArgument.id())
                                 .suggests((ctx, builder) -> suggestPublishedSignals(builder))
                                 .executes(ctx -> publishTrigger(ctx.getSource(), IdentifierArgument.getId(ctx, "signal"), null))

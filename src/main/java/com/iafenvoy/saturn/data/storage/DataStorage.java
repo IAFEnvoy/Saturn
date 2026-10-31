@@ -1,6 +1,7 @@
 package com.iafenvoy.saturn.data.storage;
 
 import com.iafenvoy.saturn.registry.SaturnRegistries;
+import com.iafenvoy.saturn.util.AbstractChangeTrackable;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 
@@ -16,9 +17,8 @@ import java.util.function.Function;
  * <p>A value ticks on a {@link DataStorageContext}, which says nothing about what kind of definition it belongs to,
  * so one kind serves any content a {@link DataStorageHolder} addresses.
  */
-public abstract class DataStorage {
+public abstract class DataStorage extends AbstractChangeTrackable {
     public static final Codec<DataStorage> CODEC = SaturnRegistries.DATA_STORAGE_TYPE.byNameCodec().dispatch("type", DataStorage::codec, Function.identity());
-    private boolean dirty;
 
     public abstract MapCodec<? extends DataStorage> codec();
 
@@ -28,16 +28,6 @@ public abstract class DataStorage {
     }
 
     public void writtenAt(long gameTime) {
-    }
-
-    public final boolean isDirty() {
-        boolean dirty = this.dirty;
-        this.dirty = false;
-        return dirty;
-    }
-
-    protected final void markDirty() {
-        this.dirty = true;
     }
 
     public static String name(DataStorage value) {

@@ -1,6 +1,10 @@
 package com.iafenvoy.saturn.command;
 
 import com.iafenvoy.saturn.Saturn;
+import com.iafenvoy.saturn.command.server.AbilityCommand;
+import com.iafenvoy.saturn.command.server.ProfilerCommand;
+import com.iafenvoy.saturn.command.server.ResourceCommand;
+import com.iafenvoy.saturn.command.server.TriggersCommand;
 import com.iafenvoy.saturn.config.SaturnConfig;
 import com.iafenvoy.saturn.attachment.AbilityAttachment;
 import com.iafenvoy.saturn.attachment.ResourceHolderAttachment;
@@ -35,8 +39,8 @@ import static net.minecraft.commands.Commands.literal;
  * world rule or a page. Reading definitions, stored state, and the framework's own runtimes is what belongs here.
  */
 @EventBusSubscriber
-public final class SaturnCommands {
-    private SaturnCommands() {
+public final class ServerCommandManager {
+    private ServerCommandManager() {
     }
 
     // The one answer to "may this source change somebody else's state", so no node spells its own check.
@@ -48,12 +52,12 @@ public final class SaturnCommands {
     public static void register(RegisterCommandsEvent event) {
         CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
         LiteralArgumentBuilder<CommandSourceStack> root = literal(Saturn.MOD_ID);
-        node(root, dispatcher, SaturnProfilerCommand.node(), SaturnConfig.PROFILER_ROOT);
+        node(root, dispatcher, ProfilerCommand.node(), SaturnConfig.PROFILER_ROOT);
         node(root, dispatcher, literal("registries").executes(ctx -> listRegistries(ctx.getSource())), SaturnConfig.REGISTRIES_ROOT);
         node(root, dispatcher, literal("attachment").then(literal("status").executes(ctx -> attachmentStatus(ctx.getSource()))), SaturnConfig.ATTACHMENT_ROOT);
-        node(root, dispatcher, SaturnAbilityCommand.node(event.getBuildContext()), SaturnConfig.ABILITY_ROOT);
-        node(root, dispatcher, SaturnTriggersCommand.node(event.getBuildContext()), SaturnConfig.TRIGGERS_ROOT);
-        node(root, dispatcher, SaturnResourceCommand.node(), SaturnConfig.RESOURCE_ROOT);
+        node(root, dispatcher, AbilityCommand.node(event.getBuildContext()), SaturnConfig.ABILITY_ROOT);
+        node(root, dispatcher, TriggersCommand.node(event.getBuildContext()), SaturnConfig.TRIGGERS_ROOT);
+        node(root, dispatcher, ResourceCommand.node(), SaturnConfig.RESOURCE_ROOT);
         dispatcher.register(root);
     }
 
@@ -81,7 +85,7 @@ public final class SaturnCommands {
                 .map(key -> key.identifier() + "=" + source.registryAccess().lookupOrThrow(key).size())
                 .collect(Collectors.joining(", "));
         String code = SaturnRegistries.all().stream()
-                .map(SaturnCommands::describe)
+                .map(ServerCommandManager::describe)
                 .collect(Collectors.joining(", "));
         source.sendSuccess(() -> Component.translatable("command.saturn.registries.datapack", datapack), false);
         source.sendSuccess(() -> Component.translatable("command.saturn.registries.code", code), false);

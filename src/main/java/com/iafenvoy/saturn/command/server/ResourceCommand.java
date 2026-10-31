@@ -1,4 +1,4 @@
-package com.iafenvoy.saturn.command;
+package com.iafenvoy.saturn.command.server;
 
 import com.iafenvoy.saturn.attachment.ResourceHolderAttachment;
 import com.iafenvoy.saturn.data.resource.Resource;
@@ -32,8 +32,8 @@ import static net.minecraft.commands.Commands.literal;
  *
  * <p>No aura node: a pool or a bank is a store of a dependent mod, and so is the command that moves it.
  */
-public final class SaturnResourceCommand {
-    private SaturnResourceCommand() {
+public final class ResourceCommand {
+    private ResourceCommand() {
     }
 
     public static LiteralArgumentBuilder<CommandSourceStack> node() {

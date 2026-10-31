@@ -1,7 +1,8 @@
-package com.iafenvoy.saturn.command;
+package com.iafenvoy.saturn.command.server;
 
 import com.iafenvoy.saturn.Saturn;
 import com.iafenvoy.saturn.attachment.AbilityAttachment;
+import com.iafenvoy.saturn.command.ServerCommandManager;
 import com.iafenvoy.saturn.data.ability.Ability;
 import com.iafenvoy.saturn.registry.SaturnAttachments;
 import com.iafenvoy.saturn.registry.SaturnResourceKeys;
@@ -38,11 +39,11 @@ import static net.minecraft.commands.Commands.literal;
  * <p>Granting and revoking go through the same source ledger content uses, under the command's own source, so an
  * operator cannot take away what a quest reward or a piece of gear granted.
  */
-public final class SaturnAbilityCommand {
+public final class AbilityCommand {
     // Recorded as the source of what the command grants, in the same shape the other modules use.
     private static final Identifier SOURCE = Identifier.fromNamespaceAndPath(Saturn.MOD_ID, "command");
 
-    private SaturnAbilityCommand() {
+    private AbilityCommand() {
     }
 
     public static LiteralArgumentBuilder<CommandSourceStack> node(CommandBuildContext context) {
@@ -52,19 +53,19 @@ public final class SaturnAbilityCommand {
                         .then(argument("target", EntityArgument.entity())
                                 .executes(ctx -> list(ctx.getSource(), EntityArgument.getEntity(ctx, "target")))))
                 .then(literal("cast")
-                        .requires(SaturnCommands::mayChange)
+                        .requires(ServerCommandManager::mayChange)
                         .then(argument("id", ResourceArgument.resource(context, SaturnResourceKeys.ABILITY))
                                 .executes(ctx -> castAbility(ctx.getSource(), id(ctx)))))
                 .then(literal("grant")
-                        .requires(SaturnCommands::mayChange)
+                        .requires(ServerCommandManager::mayChange)
                         .then(argument("targets", EntityArgument.entities())
                                 .then(argument("ability", ResourceArgument.resource(context, SaturnResourceKeys.ABILITY))
-                                        .executes(SaturnAbilityCommand::grant))))
+                                        .executes(AbilityCommand::grant))))
                 .then(literal("revoke")
-                        .requires(SaturnCommands::mayChange)
+                        .requires(ServerCommandManager::mayChange)
                         .then(argument("targets", EntityArgument.entities())
                                 .then(argument("ability", ResourceArgument.resource(context, SaturnResourceKeys.ABILITY))
-                                        .executes(SaturnAbilityCommand::revoke))));
+                                        .executes(AbilityCommand::revoke))));
     }
 
     private static Reference<Ability> id(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
