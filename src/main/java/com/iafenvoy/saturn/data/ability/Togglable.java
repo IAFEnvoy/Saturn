@@ -3,8 +3,6 @@ package com.iafenvoy.saturn.data.ability;
 import com.iafenvoy.saturn.runtime.resulting.Failure;
 import com.iafenvoy.saturn.runtime.resulting.Result;
 import com.iafenvoy.saturn.util.OptionalBoolean;
-import net.minecraft.resources.Identifier;
-import org.jspecify.annotations.Nullable;
 
 import java.util.Optional;
 
@@ -34,24 +32,5 @@ public interface Togglable {
     }
 
     // One call per press, server side only, which is why a refusal is a value rather than an exception.
-    PressResult activate(ToggleContext context);
-
-    final class PressResult extends Result {
-        private PressResult(@Nullable Failure failure, @Nullable Identifier failedResource) {
-            super(failure, failedResource);
-        }
-
-        public static PressResult activated() {
-            return new PressResult(null, null);
-        }
-
-        public static PressResult refused(Failure failure) {
-            return new PressResult(failure, null);
-        }
-
-        // The payer ran out of one named resource, which is what lets the report say which one.
-        public static PressResult refused(Failure failure, @Nullable Identifier failedResource) {
-            return new PressResult(failure, failedResource);
-        }
-    }
+    Result<Void> activate(ToggleContext context);
 }

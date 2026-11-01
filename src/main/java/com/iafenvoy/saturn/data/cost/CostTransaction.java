@@ -1,7 +1,7 @@
 package com.iafenvoy.saturn.data.cost;
 
 import com.iafenvoy.saturn.runtime.resulting.Failure;
-import com.iafenvoy.saturn.runtime.resulting.ResultWithData;
+import com.iafenvoy.saturn.runtime.resulting.Result;
 import com.iafenvoy.saturn.runtime.resulting.failures.CostFailure;
 import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
@@ -26,7 +26,7 @@ public abstract class CostTransaction implements Cost.Transaction {
     private static final ThreadLocal<Set<Object>> WRITING = ThreadLocal.withInitial(HashSet::new);
     private final CostTarget target;
     private final double amount;
-    private @Nullable ResultWithData<List<Debit>> taken;
+    private @Nullable Result<List<Debit>> taken;
     private boolean writing;
 
     protected CostTransaction(CostTarget target, double amount) {
@@ -45,19 +45,19 @@ public abstract class CostTransaction implements Cost.Transaction {
     }
 
     @Override
-    public final ResultWithData<List<Debit>> execute(boolean simulate) {
+    public final Result<List<Debit>> execute(boolean simulate) {
         // A settled transaction answers with what it took, and a simulation of it is still a simulation: only a real
         // pass produces debits, whichever order the two were asked in.
         if (this.taken != null) return simulate ? withoutDebits(this.taken) : this.taken;
         // A real pass began and never answered - it threw rather than returned, so what it wrote before that cannot be
         // taken back and cannot be known here. Executing again could charge a fee that is already paid.
-        if (this.writing) return ResultWithData.failure(List.of(), CostFailure.UNCERTAIN);
+        if (this.writing) return Result.failure(CostFailure.UNCERTAIN);
         Object guard = this.target.guard();
         Set<Object> writing = WRITING.get();
-        if (!writing.add(guard)) return ResultWithData.failure(List.of(), CostFailure.REENTRANT);
+        if (!writing.add(guard)) return Result.failure(CostFailure.REENTRANT);
         try {
             if (!simulate) this.writing = true;
-            ResultWithData<List<Debit>> result = this.perform(simulate);
+            Result<List<Debit>> result = this.perform(simulate);
             // A simulated answer is a check of what the store holds right now, so it is not kept: the same channel can
             // be asked again after the inventory moved. A real one is terminal.
             if (!simulate) {
@@ -72,10 +72,8 @@ public abstract class CostTransaction implements Cost.Transaction {
     }
 
     // The same answer without the real charges it reports: a simulation never writes, so it never took anything.
-    private static ResultWithData<List<Debit>> withoutDebits(ResultWithData<List<Debit>> taken) {
-        return taken.isFailure()
-                ? ResultWithData.failure(List.of(), taken.failure(), taken.failedResource())
-                : ResultWithData.success(List.of());
+    private static Result<List<Debit>> withoutDebits(Result<List<Debit>> taken) {
+        return taken instanceof Result.FailureResult<?> ? taken : Result.success(List.of());
     }
 
     @Override
@@ -87,26 +85,26 @@ public abstract class CostTransaction implements Cost.Transaction {
      * One pass over this channel: {@code simulate} asks and writes nothing, otherwise the fee is written and answered
      * with what it took.
      */
-    protected abstract ResultWithData<List<Debit>> perform(boolean simulate);
+    protected abstract Result<List<Debit>> perform(boolean simulate);
 
     /**
      * The same binding at another fixed amount, with no execution state of its own yet.
      */
     protected abstract CostTransaction replacing(double amount);
 
-    protected static ResultWithData<List<Debit>> took(Debit debit) {
-        return ResultWithData.success(List.of(debit));
+    protected static Result<List<Debit>> took(Debit debit) {
+        return Result.success(List.of(debit));
     }
 
-    protected static ResultWithData<List<Debit>> took(List<Debit> debits) {
-        return ResultWithData.success(debits);
+    protected static Result<List<Debit>> took(List<Debit> debits) {
+        return Result.success(debits);
     }
 
-    protected static ResultWithData<List<Debit>> refused(Failure failure) {
-        return ResultWithData.failure(List.of(), failure);
+    protected static Result<List<Debit>> refused(Failure failure) {
+        return Result.failure(failure);
     }
 
-    protected static ResultWithData<List<Debit>> refused(Failure failure, @Nullable Identifier resource) {
-        return ResultWithData.failure(List.of(), failure, resource);
+    protected static Result<List<Debit>> refused(Failure failure, @Nullable Identifier resource) {
+        return resource == null ? Result.failure(failure) : Result.failure(failure, resource);
     }
 }

@@ -8,7 +8,7 @@ import com.iafenvoy.saturn.data.cost.CostTarget;
 import com.iafenvoy.saturn.data.cost.CostTransaction;
 import com.iafenvoy.saturn.data.cost.Debit;
 import com.iafenvoy.saturn.data.cost.context.CostContext;
-import com.iafenvoy.saturn.runtime.resulting.ResultWithData;
+import com.iafenvoy.saturn.runtime.resulting.Result;
 import com.iafenvoy.saturn.runtime.resulting.failures.CostFailure;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
@@ -41,14 +41,14 @@ public record JsCost(String id, JsonObject params) implements Cost {
     private static final AtomicLong CALLS = new AtomicLong();
 
     @Override
-    public ResultWithData<Transaction> prepare(CostContext context) {
+    public Result<Transaction> prepare(CostContext context) {
         // The payer is bound here - a script cannot be paid by somebody else later - and the parameters are frozen as a
         // copy, so nothing a script does to them can reach the definition being replayed. A context without a player is
         // bound as absent and refused when the fee is paid.
         Player player = context.player();
         CostTarget target = new CostTarget.Script(this.id(), CALLS.incrementAndGet(),
                 player == null ? null : player.getUUID());
-        return ResultWithData.success(new ScriptTransaction(target, player, this.id(), this.params().deepCopy()));
+        return Result.success(new ScriptTransaction(target, player, this.id(), this.params().deepCopy()));
     }
 
     @Override
@@ -70,7 +70,7 @@ public record JsCost(String id, JsonObject params) implements Cost {
         }
 
         @Override
-        protected ResultWithData<List<Debit>> perform(boolean simulate) {
+        protected Result<List<Debit>> perform(boolean simulate) {
             if (this.player == null) return refused(CostFailure.NO_CHANNEL);
             if (!SaturnJsCostCallbacks.check(this.script, this.player, this.params.deepCopy(), simulate))
                 return refused(CostFailure.SCRIPT_REJECTED);

@@ -4,7 +4,7 @@ import com.iafenvoy.saturn.data.cost.builtin.ResourceCost;
 import com.iafenvoy.saturn.data.cost.context.CostContext;
 import com.iafenvoy.saturn.data.resource.Resource;
 import com.iafenvoy.saturn.registry.SaturnRegistries;
-import com.iafenvoy.saturn.runtime.resulting.ResultWithData;
+import com.iafenvoy.saturn.runtime.resulting.Result;
 import com.iafenvoy.saturn.util.formula.NumberProvider;
 import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.Codec;
@@ -48,7 +48,7 @@ public interface Cost {
      * store is created - a fee that cannot even be priced (a broken formula, a channel this context does not offer)
      * refuses here, which is why a payment that prepared nothing takes nothing.
      */
-    ResultWithData<Transaction> prepare(CostContext context);
+    Result<Transaction> prepare(CostContext context);
 
     MapCodec<? extends Cost> codec();
 
@@ -72,7 +72,7 @@ public interface Cost {
          * answers with no debit. A real call reports any known debit even on failure; its first answer is terminal,
          * so the same fee cannot be taken twice. The payment logs real failures and continues.
          */
-        ResultWithData<List<Debit>> execute(boolean simulate);
+        Result<List<Debit>> execute(boolean simulate);
 
         /**
          * The same binding at another fixed amount, which is how a payment edits what it is about to charge. Zero is

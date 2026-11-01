@@ -30,20 +30,19 @@ public final class AbilityActivationService {
     private AbilityActivationService() {
     }
 
-    public static Togglable.PressResult activate(LivingEntity holder, Holder<Ability> ability, @Nullable ItemStack carrier) {
+    public static Result<Void> activate(LivingEntity holder, Holder<Ability> ability, @Nullable ItemStack carrier) {
         try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.ABILITY_CAST)) {
             if (holder == null || ability == null || !(ability.value().type() instanceof Togglable togglable))
-                return Togglable.PressResult.refused(AbilityFailure.UNAVAILABLE);
+                return Result.failure(AbilityFailure.UNAVAILABLE);
             // A press writes state and world, so only the server answers one; reading the state stays two-sided.
-            if (holder.level().isClientSide()) return Togglable.PressResult.refused(AbilityFailure.UNAVAILABLE);
+            if (holder.level().isClientSide()) return Result.failure(AbilityFailure.UNAVAILABLE);
             ToggleContext context = new ToggleContext(holder, carrier, ability);
             // Nothing is paid for a press that cannot happen: the read-only precondition is asked before the gate.
             Optional<Failure> refusal = togglable.canActivate(context);
-            if (refusal.isPresent()) return Togglable.PressResult.refused(refusal.get());
+            if (refusal.isPresent()) return Result.failure(refusal.get());
             if (!togglable.gated(context)) return togglable.activate(context);
-            Result gate = AbilityService.gate(context);
-            return gate.failure() == null ? togglable.activate(context)
-                    : Togglable.PressResult.refused(gate.failure(), gate.failedResource());
+            Optional<Failure> gate = AbilityService.gate(context);
+            return gate.<Result<Void>>map(Result::failure).orElseGet(() -> togglable.activate(context));
         }
     }
 
@@ -59,15 +58,14 @@ public final class AbilityActivationService {
     }
 
     // The cast path an saturn:active press takes; kept here so the type itself stays a plain data record.
-    public static Togglable.PressResult cast(ToggleContext context) {
+    public static Result<Void> cast(ToggleContext context) {
         try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.ABILITY_CAST)) {
             LivingEntity holder = context.holder();
             AbilityAttachment abilities = holder.getData(SaturnAttachments.ABILITY_HOLDER);
             ResourceHolderAttachment resources = holder.getData(SaturnAttachments.RESOURCE_HOLDER);
-            AbilityService.UseResult result = AbilityService.use(context.ability(), holder, abilities, resources,
+            Result<AbilityService.UseData> result = AbilityService.use(context.ability(), holder, abilities, resources,
                     holder.level().getGameTime(), context.formula());
-            if (result.isSuccess() || result.casting()) return Togglable.PressResult.activated();
-            return Togglable.PressResult.refused(result.failure(), result.failedResource());
+            return result instanceof Result.FailureResult<?> ? Result.failure(result.getFailure().orElseThrow()) : Result.success();
         }
     }
 }

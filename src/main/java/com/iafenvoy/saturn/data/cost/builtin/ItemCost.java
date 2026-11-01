@@ -5,7 +5,7 @@ import com.iafenvoy.saturn.data.cost.CostTarget;
 import com.iafenvoy.saturn.data.cost.CostTransaction;
 import com.iafenvoy.saturn.data.cost.Debit;
 import com.iafenvoy.saturn.data.cost.context.CostContext;
-import com.iafenvoy.saturn.runtime.resulting.ResultWithData;
+import com.iafenvoy.saturn.runtime.resulting.Result;
 import com.iafenvoy.saturn.runtime.resulting.failures.CostFailure;
 import com.iafenvoy.saturn.util.MiscUtil;
 import com.iafenvoy.saturn.util.formula.FormulaContext;
@@ -35,14 +35,14 @@ public record ItemCost(List<Entry> entries, NumberProvider amount) implements It
     ).apply(i, ItemCost::new));
 
     @Override
-    public ResultWithData<Transaction> prepare(CostContext context) {
+    public Result<Transaction> prepare(CostContext context) {
         // The store is bound when the context offers one and refused when the fee is paid otherwise: a price can be read
         // without an inventory, and a context without one is a channel this entry does not have.
         Container store = store(context);
         double value = this.amount().evaluate(context.payer() == null ? FormulaContext.EMPTY
                 : FormulaContext.of(context.payer()));
-        if (count(value) <= 0) return ResultWithData.failure(null, CostFailure.INVALID_AMOUNT);
-        return ResultWithData.success(new ItemTransaction(store, this.entries(), value));
+        if (count(value) <= 0) return Result.failure(CostFailure.INVALID_AMOUNT);
+        return Result.success(new ItemTransaction(store, this.entries(), value));
     }
 
     @Override
@@ -89,7 +89,7 @@ public record ItemCost(List<Entry> entries, NumberProvider amount) implements It
         }
 
         @Override
-        protected ResultWithData<List<Debit>> perform(boolean simulate) {
+        protected Result<List<Debit>> perform(boolean simulate) {
             if (this.store == null) return refused(CostFailure.NO_CHANNEL);
             int required = count(this.amount());
             if (required <= 0) return refused(CostFailure.INVALID_AMOUNT);

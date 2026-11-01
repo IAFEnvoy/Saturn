@@ -23,8 +23,8 @@ import com.iafenvoy.saturn.registry.SaturnDatapackRegistries;
 import com.iafenvoy.saturn.registry.SaturnResourceKeys;
 import com.iafenvoy.saturn.runtime.EntityTickStages;
 import com.iafenvoy.saturn.runtime.Sources;
-import com.iafenvoy.saturn.runtime.ability.AbilityService.UseResult;
 import com.iafenvoy.saturn.runtime.resource.ResourceService;
+import com.iafenvoy.saturn.runtime.resulting.Result;
 import com.iafenvoy.saturn.runtime.trigger.TriggerDispatcher;
 import com.iafenvoy.saturn.runtime.trigger.TriggerPublishing;
 import com.iafenvoy.saturn.runtime.trigger.TriggerSubscription;
@@ -285,8 +285,8 @@ public final class AbilityEventBridge {
         boolean changed = false;
         for (Holder<Ability> ability : abilities.sources().keys()) {
             if (!AbilityStorage.castDue(abilities, ability, gameTime)) continue;
-            UseResult result = AbilityService.finishCast(ability, actor, abilities, resources, gameTime, FormulaContext.of(actor));
-            AbilityFeedback.reportFailedCast(actor, result.failure(), result.failedResource());
+            Result<AbilityService.UseData> result = AbilityService.finishCast(ability, actor, abilities, resources, gameTime, FormulaContext.of(actor));
+            AbilityFeedback.reportFailedCast(actor, result.getFailure().orElse(null), null);
             changed = true;
         }
         return changed;
@@ -339,8 +339,8 @@ public final class AbilityEventBridge {
                             try {
                                 if (NeoForge.EVENT_BUS.post(new Pre(entity, ability, signal.type(), signal.context())).isCanceled())
                                     return;
-                                UseResult result = AbilityService.use(ability, entity, abilities, resources, signal.gameTime(), formula);
-                                if (result.isSuccess())
+                                Result<AbilityService.UseData> result = AbilityService.use(ability, entity, abilities, resources, signal.gameTime(), formula);
+                                if (result instanceof Result.SuccessResult<?>)
                                     NeoForge.EVENT_BUS.post(new Post(entity, ability, signal.type(), signal.context()));
                             } finally {
                                 active.remove(key);

@@ -9,6 +9,7 @@ import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import java.util.Locale;
+import java.util.Optional;
 
 /**
  * Why an action was refused: a value, never an exception.
@@ -33,6 +34,14 @@ public interface Failure extends StringRepresentable {
     }
 
     /**
+     * The resource the reason was about, for the reasons that name one. A plain constant names nothing, so the whole
+     * answer - why and, when it applies, which resource - travels as one value.
+     */
+    default Optional<Identifier> resource() {
+        return Optional.empty();
+    }
+
+    /**
      * The one language key of a refusal: {@code failure.<source namespace>.<source path>.<name>}. The source is part of
      * the key so one name can say something different per registry - {@code failure.saturn.pill_binding.cooldown} - while
      * everything that lands in {@link Failures} shares {@code failure.saturn.common.*}.
@@ -42,10 +51,10 @@ public interface Failure extends StringRepresentable {
     }
 
     /**
-     * The sentence this refusal is read as; {@code args} fill the placeholders the key spells.
+     * The sentence this refusal is read as, naming the resource it carries when it carries one.
      */
-    default Component message(Object... args) {
-        return Component.translatable(this.key(), args);
+    default Component message() {
+        return this.resource().map(this::message).orElseGet(() -> Component.translatable(this.key()));
     }
 
     /**
@@ -54,8 +63,13 @@ public interface Failure extends StringRepresentable {
      * that holds the resource never has to know which reason it is holding.
      */
     default Component message(@Nullable Identifier missingResource) {
-        if (missingResource == null || !Failures.INSUFFICIENT_RESOURCE.equals(this)) return this.message();
+        if (missingResource == null || !Failures.INSUFFICIENT_RESOURCE.equals(this))
+            return Component.translatable(this.key());
         return Component.translatable(this.key() + "_named",
                 DefinitionText.nameOrId(SaturnResourceKeys.RESOURCE, missingResource));
+    }
+
+    default LocatedFailure withResource(Identifier resource) {
+        return new LocatedFailure(this, resource);
     }
 }

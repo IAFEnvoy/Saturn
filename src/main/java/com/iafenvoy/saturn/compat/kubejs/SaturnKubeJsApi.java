@@ -2,10 +2,11 @@ package com.iafenvoy.saturn.compat.kubejs;
 
 import com.iafenvoy.saturn.data.cost.Cost;
 import com.iafenvoy.saturn.data.cost.CostPayment;
+import com.iafenvoy.saturn.data.cost.Debit;
 import com.iafenvoy.saturn.data.cost.context.CostContext;
 import com.iafenvoy.saturn.data.cost.context.CostOrigins;
 import com.iafenvoy.saturn.runtime.resulting.Failures;
-import com.iafenvoy.saturn.runtime.resulting.ResultWithData;
+import com.iafenvoy.saturn.runtime.resulting.Result;
 import com.iafenvoy.saturn.util.formula.FormulaContext;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
@@ -26,11 +27,11 @@ public final class SaturnKubeJsApi {
      * Pays a whole array of costs on behalf of an entity, as {@code origin = script}. Prices are evaluated against
      * the given formula context, and the answer is the id-keyed table of what was really taken.
      */
-    public static ResultWithData<Map<Identifier, Double>> tryConsumeResources(Entity entity, List<Cost> costs, FormulaContext context) {
+    public static Result<Map<Identifier, Double>> tryConsumeResources(Entity entity, List<Cost> costs, FormulaContext context) {
         if (!(entity instanceof LivingEntity payer) || entity.level().isClientSide())
-            return ResultWithData.failure(Map.of(), Failures.UNKNOWN);
-        CostPayment.PaymentResult payment = CostPayment.pay(costs, CostContext.of(payer, context, CostOrigins.SCRIPT));
-        return payment.isSuccess() ? ResultWithData.success(payment.resources())
-                : ResultWithData.failure(payment.resources(), Failures.UNKNOWN, payment.failedResource());
+            return Result.failure(Failures.UNKNOWN);
+        Result<List<Debit>> payment = CostPayment.pay(costs, CostContext.of(payer, context, CostOrigins.SCRIPT));
+        return payment instanceof Result.SuccessResult<?> ? Result.success(CostPayment.resources(payment.getData().orElse(List.of())))
+                : Result.failure(Failures.UNKNOWN);
     }
 }

@@ -1,5 +1,6 @@
 package com.iafenvoy.saturn.compat.kubejs.binding;
 
+import com.iafenvoy.saturn.runtime.resulting.Result;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.iafenvoy.saturn.compat.kubejs.SaturnJsWarnings;
@@ -43,6 +44,6 @@ public final class SaturnKubeJsCostBindings {
         Cost cost = SaturnKubeJsDataCodec.decodeCached(Cost.CODEC, definition, player.level().registryAccess());
         // One definition is one fee, and it pays through the same bill every other caller uses - so a script cannot
         // reach a channel the common payment would have checked.
-        return CostPayment.pay(List.of(cost), CostContext.of(player, CostOrigins.SCRIPT)).isSuccess();
+        return CostPayment.pay(List.of(cost), CostContext.of(player, CostOrigins.SCRIPT)) instanceof Result.SuccessResult<?>;
     }
 }

@@ -8,7 +8,8 @@ import com.iafenvoy.saturn.registry.SaturnAttachments;
 import com.iafenvoy.saturn.registry.SaturnResourceKeys;
 import com.iafenvoy.saturn.runtime.ability.AbilityEventBridge;
 import com.iafenvoy.saturn.runtime.ability.AbilityService;
-import com.iafenvoy.saturn.runtime.ability.AbilityService.UseResult;
+import com.iafenvoy.saturn.runtime.resulting.Failure;
+import com.iafenvoy.saturn.runtime.resulting.Result;
 import com.iafenvoy.saturn.util.DefinitionText;
 import com.iafenvoy.saturn.util.formula.FormulaContext;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -121,11 +122,9 @@ public final class AbilityCommand {
             if (target.getData(SaturnAttachments.ABILITY_HOLDER).revoke(ability, SOURCE)) {
                 revoked++;
                 rebuild(target);
-                source.sendSuccess(() -> Component.translatable("command.saturn.ability.revoked",
-                        DefinitionText.nameOrId(ability), target.getDisplayName()), true);
+                source.sendSuccess(() -> Component.translatable("command.saturn.ability.revoked", DefinitionText.nameOrId(ability), target.getDisplayName()), true);
             } else {
-                source.sendFailure(Component.translatable("command.saturn.ability.revoke_failed",
-                        target.getDisplayName(), DefinitionText.nameOrId(ability)));
+                source.sendFailure(Component.translatable("command.saturn.ability.revoke_failed", target.getDisplayName(), DefinitionText.nameOrId(ability)));
             }
         }
         return revoked;
@@ -138,12 +137,11 @@ public final class AbilityCommand {
 
     private static int castAbility(CommandSourceStack source, Reference<Ability> ability) throws CommandSyntaxException {
         ServerPlayer player = source.getPlayerOrException();
-        UseResult result = AbilityService.use(ability, player, player.getData(SaturnAttachments.ABILITY_HOLDER),
-                player.getData(SaturnAttachments.RESOURCE_HOLDER), player.level().getGameTime(), FormulaContext.of(player));
+        Result<AbilityService.UseData> result = AbilityService.use(ability, player, player.getData(SaturnAttachments.ABILITY_HOLDER), player.getData(SaturnAttachments.RESOURCE_HOLDER), player.level().getGameTime(), FormulaContext.of(player));
         // An accepted cast is a success too: it commits when the cast time runs out, so there is no failure to
         // name here - reading one would be a null pointer for every skill that has a cast time.
-        if (result.failure() != null) {
-            source.sendFailure(Component.translatable("command.saturn.ability.cast_failed", result.failure().message()));
+        if (result instanceof Result.FailureResult<?>(Failure failure)) {
+            source.sendFailure(Component.translatable("command.saturn.ability.cast_failed", failure.message()));
             return 0;
         }
         source.sendSuccess(() -> Component.translatable("command.saturn.ability.cast_success", DefinitionText.nameOrId(ability)), true);

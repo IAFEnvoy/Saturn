@@ -6,7 +6,7 @@ import com.iafenvoy.saturn.data.resource.Resource;
 import com.iafenvoy.saturn.registry.SaturnDatapackRegistries;
 import com.iafenvoy.saturn.registry.SaturnResourceKeys;
 import com.iafenvoy.saturn.runtime.resulting.Failures;
-import com.iafenvoy.saturn.runtime.resulting.ResultWithData;
+import com.iafenvoy.saturn.runtime.resulting.Result;
 import com.iafenvoy.saturn.util.HolderHelper;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup.Provider;
@@ -28,14 +28,14 @@ public final class ResourceTransactions {
     private ResourceTransactions() {
     }
 
-    public static ResultWithData<Map<Identifier, Double>> tryConsume(ResourceHolderAttachment holder, Evaluation evaluation) {
+    public static Result<Map<Identifier, Double>> tryConsume(ResourceHolderAttachment holder, Evaluation evaluation) {
         return tryConsume(null, holder, evaluation);
     }
 
     // The optional entity enables a resource's use gate; server systems without an entity retain value-only
     // accounting.
-    public static ResultWithData<Map<Identifier, Double>> tryConsume(@Nullable LivingEntity entity, ResourceHolderAttachment holder,
-                                                                     Evaluation evaluation) {
+    public static Result<Map<Identifier, Double>> tryConsume(@Nullable LivingEntity entity, ResourceHolderAttachment holder,
+                                                             Evaluation evaluation) {
         // The holder is intentionally a value-only attachment, so a cost may never create a negative balance even
         // when a caller has not resolved the optional datapack bounds.
         for (Entry<Holder<Resource>, Double> entry : evaluation.amounts.entrySet()) {
@@ -44,7 +44,7 @@ public final class ResourceTransactions {
             double current = holder.get(resource);
             if (!Double.isFinite(amount) || amount <= 0.0D || !Double.isFinite(current)
                     || current < amount || current - amount < 0.0D) {
-                return rejected(resource, evaluation.amounts);
+                return rejected(resource);
             }
         }
         evaluation.amounts.forEach((resource, amount) -> {
@@ -76,16 +76,13 @@ public final class ResourceTransactions {
     }
 
     // What left a store, reported by id: this is the table a caller names back to a player.
-    private static ResultWithData<Map<Identifier, Double>> committed(Map<Holder<Resource>, Double> amounts) {
+    private static Result<Map<Identifier, Double>> committed(Map<Holder<Resource>, Double> amounts) {
         Map<Identifier, Double> reported = new LinkedHashMap<>();
         amounts.forEach((resource, amount) -> reported.merge(HolderHelper.id(resource), amount, Double::sum));
-        return ResultWithData.success(reported);
+        return Result.success(reported);
     }
 
-    private static ResultWithData<Map<Identifier, Double>> rejected(Holder<Resource> resource,
-                                                                    Map<Holder<Resource>, Double> amounts) {
-        Map<Identifier, Double> reported = new LinkedHashMap<>();
-        amounts.forEach((entry, amount) -> reported.merge(HolderHelper.id(entry), amount, Double::sum));
-        return ResultWithData.failure(reported, Failures.UNKNOWN, HolderHelper.id(resource));
+    private static Result<Map<Identifier, Double>> rejected(Holder<Resource> resource) {
+        return Result.failure(Failures.UNKNOWN, HolderHelper.id(resource));
     }
 }

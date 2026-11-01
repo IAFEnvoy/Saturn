@@ -8,6 +8,7 @@ import com.iafenvoy.saturn.data.condition.BiEntityCondition;
 import com.iafenvoy.saturn.data.cost.Cost;
 import com.iafenvoy.saturn.data.storage.DataStorageCollector;
 import com.iafenvoy.saturn.runtime.ability.AbilityActivationService;
+import com.iafenvoy.saturn.runtime.resulting.Result;
 import com.iafenvoy.saturn.util.formula.NumberProvider;
 import com.iafenvoy.saturn.util.formula.number.Constant;
 import com.mojang.serialization.MapCodec;
@@ -63,7 +64,7 @@ public record ChannelledAbilityType(NumberProvider tickInterval, List<Cost> upke
     }
 
     @Override
-    public PressResult activate(ToggleContext context) {
+    public Result<Void> activate(ToggleContext context) {
         return AbilityActivationService.cast(context);
     }
 }

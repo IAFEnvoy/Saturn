@@ -4,6 +4,7 @@ import com.iafenvoy.saturn.data.ability.*;
 import com.iafenvoy.saturn.data.storage.DataStorageCollector;
 import com.iafenvoy.saturn.data.storage.builtin.CooldownDataStorage;
 import com.iafenvoy.saturn.runtime.ability.AbilityActivationService;
+import com.iafenvoy.saturn.runtime.resulting.Result;
 import com.iafenvoy.saturn.util.formula.FormulaContext;
 import com.iafenvoy.saturn.util.formula.NumberProvider;
 import com.iafenvoy.saturn.util.formula.number.Constant;
@@ -51,7 +52,7 @@ public record TargetedAbilityType(TargetSelector targetSelector, Holder<Ability>
     }
 
     @Override
-    public PressResult activate(ToggleContext context) {
+    public Result<Void> activate(ToggleContext context) {
         return AbilityActivationService.cast(context);
     }
 

@@ -5,6 +5,7 @@ import com.iafenvoy.saturn.attachment.AbilityAttachment;
 import com.iafenvoy.saturn.attachment.ResourceHolderAttachment;
 import com.iafenvoy.saturn.data.ability.*;
 import com.iafenvoy.saturn.data.cost.CostPayment;
+import com.iafenvoy.saturn.data.cost.Debit;
 import com.iafenvoy.saturn.data.cost.context.CostContext;
 import com.iafenvoy.saturn.data.cost.context.CostOrigins;
 import com.iafenvoy.saturn.data.storage.builtin.ChargesDataStorage;
@@ -21,7 +22,6 @@ import com.iafenvoy.saturn.registry.SaturnAttachments;
 import com.iafenvoy.saturn.runtime.resulting.Failure;
 import com.iafenvoy.saturn.runtime.resulting.Failures;
 import com.iafenvoy.saturn.runtime.resulting.Result;
-import com.iafenvoy.saturn.runtime.resulting.ResultWithData;
 import com.iafenvoy.saturn.runtime.resulting.failures.AbilityFailure;
 import com.iafenvoy.saturn.util.formula.FormulaContext;
 import com.iafenvoy.saturn.util.formula.FormulaContexts;
@@ -35,6 +35,7 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.NeoForge;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -54,24 +55,24 @@ public final class AbilityService {
     private AbilityService() {
     }
 
-    private static ResultWithData<PreparedUse> prepare(Holder<Ability> ability, AbilityAttachment abilities, long gameTime,
-                                                       FormulaContext context, LivingEntity payer, boolean requiresGrant,
-                                                       @Nullable CostPayment payment) {
+    private static Result<PreparedUse> prepare(Holder<Ability> ability, AbilityAttachment abilities, long gameTime,
+                                               FormulaContext context, LivingEntity payer, boolean requiresGrant,
+                                               @Nullable CostPayment payment) {
         Ability definition = ability.value();
         if (requiresGrant && !abilities.has(ability))
-            return ResultWithData.failure(null, AbilityFailure.NOT_GRANTED, null);
+            return Result.failure(AbilityFailure.NOT_GRANTED);
         if (AbilityStorage.onCooldown(abilities, ability, gameTime))
-            return ResultWithData.failure(null, Failures.COOLDOWN, null);
+            return Result.failure(Failures.COOLDOWN);
         double castTime = definition.castTime().evaluate(context);
         double cooldown = cooldownOf(ability, context);
         if (!Double.isFinite(castTime) || castTime < 0.0D || !Double.isFinite(cooldown) || cooldown < 0.0D) {
-            return ResultWithData.failure(null, Failures.INVALID_FORMULA, null);
+            return Result.failure(Failures.INVALID_FORMULA);
         }
         long channelInterval = 0L;
         if (definition.type() instanceof ChannelSource channel) {
             double interval = channel.channelInterval().evaluate(context);
             if (!Double.isFinite(interval) || interval <= 0.0D || interval > Long.MAX_VALUE) {
-                return ResultWithData.failure(null, Failures.INVALID_FORMULA, null);
+                return Result.failure(Failures.INVALID_FORMULA);
             }
             channelInterval = Math.max(1L, Math.round(interval));
         }
@@ -82,7 +83,7 @@ public final class AbilityService {
             OptionalDouble stored = AbilityStorage.get(abilities, ability, ChargesDataStorage.class).map(ChargesDataStorage::remaining).orElseGet(OptionalDouble::empty);
             double available = stored.orElse(maximum);
             if (!Double.isFinite(maximum) || maximum < 1.0D || !Double.isFinite(available) || available < 1.0D) {
-                return ResultWithData.failure(null, AbilityFailure.NO_CHARGES, null);
+                return Result.failure(AbilityFailure.NO_CHARGES);
             }
             chargeBefore = available;
         }
@@ -92,33 +93,34 @@ public final class AbilityService {
         CostPayment cost = payment != null ? payment
                 : CostPayment.of(CostContext.of(payer, context, CostOrigins.ABILITY));
         Optional<Failure> refusal = cost.price(definition.costs());
-        if (refusal.isPresent()) return ResultWithData.failure(null, refusal.get(), cost.failedResource());
+        if (refusal.isPresent()) return Result.failure(refusal.get(), cost.failedResource().orElse(null));
         refusal = cost.test();
-        if (refusal.isPresent()) return ResultWithData.failure(null, refusal.get(), cost.failedResource());
-        return ResultWithData.success(new PreparedUse(ability, cost, Math.round(castTime), Math.round(cooldown), channelInterval, charges.isPresent(), chargeBefore));
+        if (refusal.isPresent()) return Result.failure(refusal.get(), cost.failedResource().orElse(null));
+        return Result.success(new PreparedUse(ability, cost, Math.round(castTime), Math.round(cooldown), channelInterval, charges.isPresent(), chargeBefore));
     }
 
-    private static ResultWithData<Map<Identifier, Double>> commit(PreparedUse use, AbilityAttachment abilities, long gameTime) {
+    private static Result<Map<Identifier, Double>> commit(PreparedUse use, AbilityAttachment abilities, long gameTime) {
         if (AbilityStorage.onCooldown(abilities, use.ability(), gameTime))
-            return ResultWithData.failure(Map.of(), Failures.COOLDOWN, null);
-        CostPayment.PaymentResult payment = use.payment().pay();
-        if (!payment.isSuccess()) return ResultWithData.failure(Map.of(), payment.failure(), payment.failedResource());
+            return Result.failure(Failures.COOLDOWN);
+        Result<List<Debit>> payment = use.payment().pay();
+        if (payment instanceof Result.FailureResult<?>)
+            return Result.failure(payment.getFailure().orElseThrow());
         applyAbilityState(use, abilities, gameTime);
-        return ResultWithData.success(payment.resources());
+        return Result.success(CostPayment.resources(payment.getData().orElse(List.of())));
     }
 
-    public static UseResult use(Holder<Ability> ability, Entity actor,
-                                AbilityAttachment abilities, ResourceHolderAttachment resources, long gameTime,
-                                FormulaContext context) {
+    public static Result<UseData> use(Holder<Ability> ability, Entity actor,
+                                      AbilityAttachment abilities, ResourceHolderAttachment resources, long gameTime,
+                                      FormulaContext context) {
         return use(ability, actor, abilities, resources, gameTime, context, true, null);
     }
 
     // For an ability the actor does not hold but an item of theirs carries: the filled item is its own
     // permission, and everything else is the ordinary path. origin is where it happens when that is not where
     // the actor is (a talisman on a display stand fires from the stand); null means the actor's own position.
-    public static UseResult useCarried(Holder<Ability> ability, Entity actor,
-                                       AbilityAttachment abilities, ResourceHolderAttachment resources, long gameTime,
-                                       FormulaContext context, @Nullable Vec3 origin) {
+    public static Result<UseData> useCarried(Holder<Ability> ability, Entity actor,
+                                             AbilityAttachment abilities, ResourceHolderAttachment resources, long gameTime,
+                                             FormulaContext context, @Nullable Vec3 origin) {
         try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.ABILITY_CAST)) {
             return use(ability, actor, abilities, resources, gameTime, context, false, origin);
         }
@@ -126,27 +128,27 @@ public final class AbilityService {
 
     /**
      * Merges one carried ability's costs into a payment without executing anything, so a caller paying for several
-     * things in one act can check the whole payment before any of them happens. Null means the payment went through;
+     * things in one act can check the whole payment before any of them happens. Empty means the payment went through;
      * anything else is why this ability would not fire. It reads the same refusals as {@link #useCarried} except the
      * ones only a run can answer (a reach that lands on nobody).
      */
-    public static @Nullable Failure reserveCost(Holder<Ability> ability, Entity actor, AbilityAttachment abilities,
+    public static Optional<Failure> reserveCost(Holder<Ability> ability, Entity actor, AbilityAttachment abilities,
                                                 CostPayment payment, long gameTime, FormulaContext context) {
         Ability definition = ability.value();
         if (definition.castTime().evaluate(context) > 0.0D || definition.type() instanceof ChannelSource)
-            return AbilityFailure.CARRIED_NOT_INSTANT;
-        if (!definition.condition().test(actor, context)) return Failures.CONDITION_FAILED;
-        ResultWithData<PreparedUse> prepared = prepare(ability, abilities, gameTime, context,
+            return Optional.of(AbilityFailure.CARRIED_NOT_INSTANT);
+        if (!definition.condition().test(actor, context)) return Optional.of(Failures.CONDITION_FAILED);
+        Result<PreparedUse> prepared = prepare(ability, abilities, gameTime, context,
                 actor instanceof LivingEntity living ? living : null, false, payment);
-        return prepared.isSuccess() ? null : prepared.failure();
+        return prepared.getFailure();
     }
 
-    private static UseResult use(Holder<Ability> ability, Entity actor,
-                                 AbilityAttachment abilities, ResourceHolderAttachment resources, long gameTime,
-                                 FormulaContext context, boolean requiresGrant, @Nullable Vec3 origin) {
+    private static Result<UseData> use(Holder<Ability> ability, Entity actor,
+                                       AbilityAttachment abilities, ResourceHolderAttachment resources, long gameTime,
+                                       FormulaContext context, boolean requiresGrant, @Nullable Vec3 origin) {
         // Every use is authoritative: paying, writing state and running actions belong to the server, and a client
         // that asked anyway gets the same answer the script boundary gives.
-        if (actor.level().isClientSide()) return UseResult.rejected(Failures.SERVER_ONLY, null);
+        if (actor.level().isClientSide()) return Result.failure(Failures.SERVER_ONLY);
         Ability definition = ability.value();
         if (actor instanceof LivingEntity living) {
             context = FormulaContexts.forEntity(living, context);
@@ -157,65 +159,66 @@ public final class AbilityService {
         // its cast or would stop on its first tick. Refused here, before anything has been paid for.
         if (!requiresGrant && (definition.castTime().evaluate(context) > 0.0D
                 || definition.type() instanceof ChannelSource))
-            return UseResult.rejected(AbilityFailure.CARRIED_NOT_INSTANT, null);
+            return Result.failure(AbilityFailure.CARRIED_NOT_INSTANT);
         if (NeoForge.EVENT_BUS.post(new AbilityUseEvent.Pre(actor, ability, context)).isCanceled()) {
-            return UseResult.rejected(Failures.CANCELLED, null);
+            return Result.failure(Failures.CANCELLED);
         }
         if (!definition.condition().test(actor, context)) {
-            return UseResult.rejected(Failures.CONDITION_FAILED, null);
+            return Result.failure(Failures.CONDITION_FAILED);
         }
         if (!AbilityHooks.get().validate(definition, actor, context))
-            return UseResult.rejected(AbilityFailure.PERMISSION_DENIED, null);
-        ResultWithData<PreparedUse> prepared = prepare(ability, abilities, gameTime, context, actor instanceof LivingEntity living ? living : null, requiresGrant, null);
-        if (!prepared.isSuccess()) return UseResult.rejected(prepared.failure(), prepared.failedResource());
-        if (prepared.getData().castTimeTicks() > 0L) {
+            return Result.failure(AbilityFailure.PERMISSION_DENIED);
+        Result<PreparedUse> prepared = prepare(ability, abilities, gameTime, context, actor instanceof LivingEntity living ? living : null, requiresGrant, null);
+        if (prepared instanceof Result.FailureResult<?>) return Result.failure(prepared.getFailure().orElseThrow());
+        PreparedUse preparedUse = prepared.getData().orElseThrow();
+        if (preparedUse.castTimeTicks() > 0L) {
             AbilityStorage.value(abilities, ability, CastDeadline.class, new CastDeadline(CastDeadline.NO_CAST), gameTime)
-                    .start(Math.addExact(gameTime, prepared.getData().castTimeTicks()));
-            return UseResult.castingResult();
+                    .start(Math.addExact(gameTime, preparedUse.castTimeTicks()));
+            return Result.success(UseData.CASTING);
         }
-        return finishPreparedUse(prepared.getData(), definition, actor, abilities, resources, gameTime, context, origin);
+        return finishPreparedUse(preparedUse, definition, actor, abilities, resources, gameTime, context, origin);
     }
 
-    public static UseResult finishCast(Holder<Ability> ability, Entity actor,
-                                       AbilityAttachment abilities, ResourceHolderAttachment resources, long gameTime,
-                                       FormulaContext context) {
+    public static Result<UseData> finishCast(Holder<Ability> ability, Entity actor,
+                                             AbilityAttachment abilities, ResourceHolderAttachment resources, long gameTime,
+                                             FormulaContext context) {
         try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.ABILITY_CAST)) {
-            if (actor.level().isClientSide()) return UseResult.rejected(Failures.SERVER_ONLY, null);
+            if (actor.level().isClientSide()) return Result.failure(Failures.SERVER_ONLY);
             Ability definition = ability.value();
             if (actor instanceof LivingEntity living) {
                 context = FormulaContexts.forEntity(living, context);
                 context = withAbilityScaling(living, ability, context);
             }
             if (!AbilityStorage.castDue(abilities, ability, gameTime)) {
-                return UseResult.castingResult();
+                return Result.success(UseData.CASTING);
             }
             AbilityStorage.clearCast(abilities, ability, gameTime);
             if (!definition.condition().test(actor, context))
-                return UseResult.rejected(Failures.CONDITION_FAILED, null);
+                return Result.failure(Failures.CONDITION_FAILED);
             if (!AbilityHooks.get().validate(definition, actor, context))
-                return UseResult.rejected(AbilityFailure.PERMISSION_DENIED, null);
+                return Result.failure(AbilityFailure.PERMISSION_DENIED);
             // Already started by something that could start one, so the grant it was approved under is not asked for
             // a second time.
-            ResultWithData<PreparedUse> prepared = prepare(ability, abilities, gameTime, context,
+            Result<PreparedUse> prepared = prepare(ability, abilities, gameTime, context,
                     actor instanceof LivingEntity living ? living : null, false, null);
-            if (!prepared.isSuccess()) return UseResult.rejected(prepared.failure(), prepared.failedResource());
-            return finishPreparedUse(prepared.getData(), definition, actor, abilities, resources, gameTime, context, null);
+            if (prepared instanceof Result.FailureResult<?>) return Result.failure(prepared.getFailure().orElseThrow());
+            return finishPreparedUse(prepared.getData().orElseThrow(), definition, actor, abilities, resources, gameTime, context, null);
         }
     }
 
-    private static UseResult finishPreparedUse(PreparedUse preparedUse, Ability definition, Entity actor,
-                                               AbilityAttachment abilities, ResourceHolderAttachment resources, long gameTime,
-                                               FormulaContext context, @Nullable Vec3 origin) {
+    private static Result<UseData> finishPreparedUse(PreparedUse preparedUse, Ability definition, Entity actor,
+                                                     AbilityAttachment abilities, ResourceHolderAttachment resources, long gameTime,
+                                                     FormulaContext context, @Nullable Vec3 origin) {
         // Decided before the press pays for anything: a reach that lands on nobody is a refusal, not a paid silence.
-        Failure unreached = applierFailure(definition, actor, context, origin);
-        if (unreached != null) return UseResult.rejected(unreached, null);
+        Optional<Failure> unreached = applierFailure(definition, actor, context, origin);
+        if (unreached.isPresent()) return Result.failure(unreached.get());
         Pre resourceEvent = new Pre(resources, preparedUse.payment().resources());
-        if (NeoForge.EVENT_BUS.post(resourceEvent).isCanceled()) return UseResult.rejected(Failures.CANCELLED, null);
+        if (NeoForge.EVENT_BUS.post(resourceEvent).isCanceled()) return Result.failure(Failures.CANCELLED);
         // The event owns the amounts from here on: the payment being made is the one it handed back.
         Optional<Failure> edited = preparedUse.payment().replaceResourceAmounts(resourceEvent.getAmounts());
-        if (edited.isPresent()) return UseResult.rejected(edited.get(), null);
-        ResultWithData<Map<Identifier, Double>> committed = commit(preparedUse, abilities, gameTime);
-        if (!committed.isSuccess()) return UseResult.rejected(committed.failure(), committed.failedResource());
+        if (edited.isPresent()) return Result.failure(edited.get());
+        Result<Map<Identifier, Double>> committed = commit(preparedUse, abilities, gameTime);
+        if (committed instanceof Result.FailureResult<?>) return Result.failure(committed.getFailure().orElseThrow());
         if (definition.type() instanceof ChannelSource) {
             abilities.setChannelledAbility(preparedUse.ability());
             AbilityStorage.value(abilities, preparedUse.ability(), ChannelPulse.class, new ChannelPulse(0.0D), gameTime)
@@ -224,38 +227,39 @@ public final class AbilityService {
         // A channel owns the ability until released, so it never runs the one-shot entity action; its
         // target action still fires on activation and then once per upkeep pulse.
         executeEffects(definition, actor, context, origin);
-        NeoForge.EVENT_BUS.post(new Post(resources, committed.getData()));
-        NeoForge.EVENT_BUS.post(new AbilityUseEvent.Post(actor, preparedUse.ability(), context, committed.getData()));
+        Map<Identifier, Double> amounts = committed.getData().orElse(Map.of());
+        NeoForge.EVENT_BUS.post(new Post(resources, amounts));
+        NeoForge.EVENT_BUS.post(new AbilityUseEvent.Post(actor, preparedUse.ability(), context, amounts));
         if (actor instanceof ServerPlayer player)
             AbilityHooks.get().onCommitted(player, preparedUse.ability());
-        return UseResult.committed(committed.getData());
+        return Result.success(new UseData(false, amounts));
     }
 
     // What one press costs when the press is not a cast: the condition, the cooldown and the entry's own costs,
     // paid once, in the same transaction a cast uses. A type that acts on a press calls this first unless it has
     // a reason of its own not to (see Toggable#gated).
-    public static Result gate(ToggleContext context) {
+    public static Optional<Failure> gate(ToggleContext context) {
         Holder<Ability> ability = context.ability();
         LivingEntity holder = context.holder();
-        if (holder.level().isClientSide()) return Result.failure(Failures.SERVER_ONLY, null);
+        if (holder.level().isClientSide()) return Optional.of(Failures.SERVER_ONLY);
         AbilityAttachment abilities = holder.getData(SaturnAttachments.ABILITY_HOLDER);
         long gameTime = holder.level().getGameTime();
         FormulaContext formula = context.formula();
         Ability definition = ability.value();
-        if (!abilities.has(ability)) return Result.failure(AbilityFailure.NOT_GRANTED, null);
+        if (!abilities.has(ability)) return Optional.of(AbilityFailure.NOT_GRANTED);
         if (AbilityStorage.onCooldown(abilities, ability, gameTime))
-            return Result.failure(Failures.COOLDOWN, null);
-        if (!definition.condition().test(holder, formula)) return Result.failure(Failures.CONDITION_FAILED, null);
+            return Optional.of(Failures.COOLDOWN);
+        if (!definition.condition().test(holder, formula)) return Optional.of(Failures.CONDITION_FAILED);
         double cooldown = cooldownOf(ability, formula);
-        if (!Double.isFinite(cooldown) || cooldown < 0.0D) return Result.failure(Failures.INVALID_FORMULA, null);
+        if (!Double.isFinite(cooldown) || cooldown < 0.0D) return Optional.of(Failures.INVALID_FORMULA);
         CostPayment plan = CostPayment.of(CostContext.of(holder, formula, CostOrigins.ABILITY));
         Optional<Failure> refusal = plan.price(definition.costs());
-        if (refusal.isPresent()) return Result.failure(refusal.get(), null);
-        CostPayment.PaymentResult payment = plan.pay();
-        if (!payment.isSuccess()) return Result.failure(payment.failure(), payment.failedResource());
+        if (refusal.isPresent()) return refusal;
+        Result<List<Debit>> payment = plan.pay();
+        if (payment instanceof Result.FailureResult<?>) return payment.getFailure();
         if (cooldown > 0.0D)
             AbilityStorage.startCooldown(abilities, ability, cooldown, gameTime);
-        return Result.success();
+        return Optional.empty();
     }
 
     // The ability's own field is the one length there is: the state written on every payment carries the length it
@@ -265,62 +269,64 @@ public final class AbilityService {
     }
 
     // Server entity tick bridge only.
-    public static ChannelResult tickChannel(Holder<Ability> ability, Entity actor,
-                                            AbilityAttachment abilities, ResourceHolderAttachment resources, long gameTime,
-                                            FormulaContext context) {
+    public static Result<ChannelData> tickChannel(Holder<Ability> ability, Entity actor,
+                                                  AbilityAttachment abilities, ResourceHolderAttachment resources, long gameTime,
+                                                  FormulaContext context) {
         try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.ABILITY_CHANNEL)) {
             Ability definition = ability.value();
             if (actor instanceof LivingEntity living) {
                 context = withAbilityScaling(living, ability, FormulaContexts.forEntity(living, context));
             }
             if (abilities.channelledAbility().filter(ability::equals).isEmpty())
-                return ChannelResult.inactive();
+                return Result.success(ChannelData.INACTIVE);
             if (!abilities.has(ability) || !(definition.type() instanceof ChannelSource channel)) {
                 stopChannel(abilities);
-                return ChannelResult.stopped(AbilityFailure.NOT_GRANTED);
+                return Result.failure(AbilityFailure.NOT_GRANTED);
             }
             long nextTick = Math.round(AbilityStorage.get(abilities, ability, ChannelPulse.class)
                     .map(ChannelPulse::nextTick).orElse((double) gameTime));
-            if (gameTime < nextTick) return ChannelResult.waiting(nextTick);
+            if (gameTime < nextTick)
+                return Result.success(new ChannelData(ChannelData.State.WAITING, nextTick, Map.of()));
             if (!definition.condition().test(actor, context)) {
                 stopChannel(abilities);
-                return ChannelResult.stopped(Failures.CONDITION_FAILED);
+                return Result.failure(Failures.CONDITION_FAILED);
             }
             double interval = channel.channelInterval().evaluate(context);
             if (!Double.isFinite(interval) || interval <= 0.0D || interval > Long.MAX_VALUE) {
                 stopChannel(abilities);
-                return ChannelResult.stopped(Failures.INVALID_FORMULA);
+                return Result.failure(Failures.INVALID_FORMULA);
             }
             CostContext upkeepContext = CostContext.of(actor instanceof LivingEntity living ? living : null, context, CostOrigins.CHANNEL_UPKEEP);
             CostPayment upkeep = CostPayment.of(upkeepContext);
             Optional<Failure> unpaid = upkeep.price(channel.upkeepCosts());
             if (unpaid.isPresent()) {
                 stopChannel(abilities);
-                return ChannelResult.stopped(unpaid.get());
+                return Result.failure(unpaid.get());
             }
             // The event owns the amounts from here on: the pulse being paid is the one it handed back.
             Pre resourceEvent = new Pre(resources, upkeep.resources());
             if (NeoForge.EVENT_BUS.post(resourceEvent).isCanceled()) {
                 stopChannel(abilities);
-                return ChannelResult.stopped(Failures.CANCELLED);
+                return Result.failure(Failures.CANCELLED);
             }
             Optional<Failure> edited = upkeep.replaceResourceAmounts(resourceEvent.getAmounts());
             if (edited.isPresent()) {
                 stopChannel(abilities);
-                return ChannelResult.stopped(edited.get());
+                return Result.failure(edited.get());
             }
-            CostPayment.PaymentResult payment = upkeep.pay();
-            if (!payment.isSuccess()) {
+            Result<List<Debit>> payment = upkeep.pay();
+            if (payment instanceof Result.FailureResult<?>) {
                 stopChannel(abilities);
-                return ChannelResult.stopped(payment.failure());
+                return Result.failure(payment.getFailure().orElseThrow());
             }
             // A channel is never carried by an item (see useCarried), so its pulses happen where the actor is.
             executeEffects(definition, actor, context, null);
-            NeoForge.EVENT_BUS.post(new Post(resources, payment.resources()));
+            Map<Identifier, Double> amounts = CostPayment.resources(payment.getData().orElse(List.of()));
+            NeoForge.EVENT_BUS.post(new Post(resources, amounts));
             long intervalTicks = Math.max(1L, Math.round(interval));
             long followingTick = Math.addExact(gameTime, intervalTicks);
             AbilityStorage.value(abilities, ability, ChannelPulse.class, new ChannelPulse(0.0D), gameTime).set(followingTick);
-            return ChannelResult.pulsed(followingTick, payment.resources());
+            return Result.success(new ChannelData(ChannelData.State.PULSED, followingTick, amounts));
         }
     }
 
@@ -346,16 +352,16 @@ public final class AbilityService {
 
     // What an applier activation would land on, asked before it is paid for. A payload with no one-target half would
     // do nothing at all, which is a different refusal from a reach that found nobody.
-    private static @Nullable Failure applierFailure(Ability definition, Entity actor, FormulaContext context,
+    private static Optional<Failure> applierFailure(Ability definition, Entity actor, FormulaContext context,
                                                     @Nullable Vec3 origin) {
-        if (!(definition.type() instanceof AbilityApplier applier)) return null;
-        if (!(applier.payload().value().type() instanceof ActionCarrier)) return Failures.NOT_APPLICABLE;
+        if (!(definition.type() instanceof AbilityApplier applier)) return Optional.empty();
+        if (!(applier.payload().value().type() instanceof ActionCarrier)) return Optional.of(Failures.NOT_APPLICABLE);
         try {
-            return applier.reach(actor, context, origin).findAny().isPresent() ? null : Failures.NO_TARGET;
+            return applier.reach(actor, context, origin).findAny().isPresent() ? Optional.empty() : Optional.of(Failures.NO_TARGET);
         } catch (RuntimeException exception) {
             // A selector or condition that cannot be evaluated is a broken definition, not an empty reach.
             LOGGER.log("Ability target selection failed", exception);
-            return Failures.INVALID_FORMULA;
+            return Optional.of(Failures.INVALID_FORMULA);
         }
     }
 
@@ -380,79 +386,13 @@ public final class AbilityService {
                               boolean consumeCharge, double chargeBefore) {
     }
 
-    public static final class UseResult extends Result {
-        private final boolean casting;
-        private final Map<Identifier, Double> amounts;
-
-        private UseResult(boolean casting, @Nullable Failure failure, @Nullable Identifier failedResource,
-                          Map<Identifier, Double> amounts) {
-            super(failure, failedResource);
-            this.casting = casting;
-            this.amounts = amounts;
-        }
-
-        private static UseResult committed(Map<Identifier, Double> amounts) {
-            return new UseResult(false, null, null, amounts);
-        }
-
-        private static UseResult castingResult() {
-            return new UseResult(true, null, null, Map.of());
-        }
-
-        public static UseResult rejected(Failure failure, Identifier resource) {
-            return new UseResult(false, failure, resource, Map.of());
-        }
-
-        public boolean casting() {
-            return this.casting;
-        }
-
-        public Map<Identifier, Double> amounts() {
-            return this.amounts;
-        }
+    public record UseData(boolean casting, Map<Identifier, Double> amounts) {
+        public static final UseData CASTING = new UseData(true, Map.of());
     }
 
-    public static final class ChannelResult extends Result {
-        private final State state;
-        private final long nextTick;
-        private final Map<Identifier, Double> amounts;
+    public record ChannelData(State state, long nextTick, Map<Identifier, Double> amounts) {
+        public static final ChannelData INACTIVE = new ChannelData(State.INACTIVE, -1L, Map.of());
 
-        private ChannelResult(State state, @Nullable Failure failure, long nextTick,
-                              Map<Identifier, Double> amounts) {
-            super(failure, null);
-            this.state = state;
-            this.nextTick = nextTick;
-            this.amounts = amounts;
-        }
-
-        private static ChannelResult inactive() {
-            return new ChannelResult(State.INACTIVE, null, -1L, Map.of());
-        }
-
-        private static ChannelResult waiting(long nextTick) {
-            return new ChannelResult(State.WAITING, null, nextTick, Map.of());
-        }
-
-        private static ChannelResult pulsed(long nextTick, Map<Identifier, Double> amounts) {
-            return new ChannelResult(State.PULSED, null, nextTick, amounts);
-        }
-
-        private static ChannelResult stopped(Failure failure) {
-            return new ChannelResult(State.STOPPED, failure, -1L, Map.of());
-        }
-
-        public State state() {
-            return this.state;
-        }
-
-        public long nextTick() {
-            return this.nextTick;
-        }
-
-        public Map<Identifier, Double> amounts() {
-            return this.amounts;
-        }
+        public enum State {INACTIVE, WAITING, PULSED, STOPPED}
     }
-
-    public enum State {INACTIVE, WAITING, PULSED, STOPPED}
 }

@@ -4,7 +4,7 @@ import com.iafenvoy.saturn.data.cost.Cost;
 import com.iafenvoy.saturn.data.cost.CostTransaction;
 import com.iafenvoy.saturn.data.cost.context.CostContext;
 import com.iafenvoy.saturn.data.resource.Resource;
-import com.iafenvoy.saturn.runtime.resulting.ResultWithData;
+import com.iafenvoy.saturn.runtime.resulting.Result;
 import com.iafenvoy.saturn.runtime.resulting.failures.CostFailure;
 import com.iafenvoy.saturn.util.formula.NumberProvider;
 import com.mojang.serialization.MapCodec;
@@ -21,11 +21,11 @@ public record ResourceCost(Holder<Resource> resource, NumberProvider amount) imp
     ).apply(i, ResourceCost::new));
 
     @Override
-    public ResultWithData<Transaction> prepare(CostContext context) {
+    public Result<Transaction> prepare(CostContext context) {
         double value = ResourceChannel.evaluate(context, this.resource(), this.amount());
-        if (value <= 0.0D) return ResultWithData.failure(null, CostFailure.INVALID_AMOUNT);
+        if (value <= 0.0D) return Result.failure(CostFailure.INVALID_AMOUNT);
         CostTransaction transaction = ResourceChannel.transaction(context, this.resource(), value);
-        return ResultWithData.success(transaction);
+        return Result.success(transaction);
     }
 
     @Override

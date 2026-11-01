@@ -12,7 +12,6 @@ import com.iafenvoy.saturn.registry.SaturnResourceKeys;
 import com.iafenvoy.saturn.runtime.resulting.Failure;
 import com.iafenvoy.saturn.runtime.resulting.Failures;
 import com.iafenvoy.saturn.runtime.resulting.Result;
-import com.iafenvoy.saturn.runtime.resulting.ResultWithData;
 import com.iafenvoy.saturn.runtime.resulting.failures.CostFailure;
 import com.iafenvoy.saturn.util.HolderHelper;
 import com.mojang.logging.LogUtils;
@@ -40,7 +39,7 @@ public final class CostPayment {
     private boolean closed;
     private boolean paying;
     private boolean uncertain;
-    private @Nullable PaymentResult taken;
+    private @Nullable Result<List<Debit>> taken;
 
     private CostPayment(CostContext context) {
         this.context = context;
@@ -57,12 +56,11 @@ public final class CostPayment {
      * One array, priced, checked and paid in one call: nothing is taken unless every entry could be priced and every
      * store could pay.
      */
-    public static PaymentResult pay(List<Cost> costs, CostContext context) {
+    public static Result<List<Debit>> pay(List<Cost> costs, CostContext context) {
         try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.COST)) {
             CostPayment payment = of(context);
             Optional<Failure> refusal = payment.price(costs);
-            return refusal.map(failure -> PaymentResult.denied(failure, payment.failedResource()))
-                    .orElseGet(payment::pay);
+            return refusal.<Result<List<Debit>>>map(Result::failure).orElseGet(payment::pay);
         }
     }
 
@@ -85,9 +83,9 @@ public final class CostPayment {
         try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.COST)) {
             if (this.closed) return Optional.of(CostFailure.BILL_CLOSED);
             for (Cost cost : costs) {
-                ResultWithData<Cost.Transaction> prepared = cost.prepare(context);
-                if (prepared.isFailure()) return this.broken(prepared.failure(), prepared.failedResource());
-                this.entries.add(new Entry(context, prepared.getData()));
+                Result<Cost.Transaction> prepared = cost.prepare(context);
+                if (prepared instanceof Result.FailureResult<?>) return this.broken(prepared.getFailure().orElseThrow(), null);
+                this.entries.add(new Entry(context, prepared.getData().orElseThrow()));
             }
             return Optional.empty();
         }
@@ -100,13 +98,13 @@ public final class CostPayment {
      */
     public Optional<Failure> test() {
         try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.COST)) {
-            if (this.taken != null) return Optional.ofNullable(this.taken.failure());
+            if (this.taken != null) return this.taken.getFailure();
             if (this.failure != null) return Optional.of(this.failure);
             List<Entry> plan = this.plan();
             if (plan == null) return Optional.of(CostFailure.INVALID_AMOUNT);
             for (Entry entry : plan) {
-                ResultWithData<List<Debit>> simulated = entry.transaction().execute(true);
-                if (simulated.isFailure()) return Optional.of(simulated.failure());
+                Result<List<Debit>> simulated = entry.transaction().execute(true);
+                if (simulated instanceof Result.FailureResult<?>) return simulated.getFailure();
             }
             return Optional.empty();
         }
@@ -116,17 +114,17 @@ public final class CostPayment {
      * Simulation failures refuse the bill; real failures only warn and do not cancel it or later fees.
      * Repeating this call returns the terminal answer without charging again.
      */
-    public PaymentResult pay() {
+    public Result<List<Debit>> pay() {
         try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.COST)) {
             if (this.taken != null) return this.taken;
-            if (this.paying) return PaymentResult.denied(CostFailure.REENTRANT, null);
+            if (this.paying) return Result.failure(CostFailure.REENTRANT);
             // Asked once the real pass had begun and never answered: whatever it wrote before the throw cannot be taken
             // back, so a second attempt could charge a fee that is already paid. The bill stays unanswered rather than
             // guessing, and nothing is written again.
-            if (this.uncertain) return this.taken = PaymentResult.denied(CostFailure.UNCERTAIN, null);
-            if (this.failure != null) return this.taken = PaymentResult.denied(this.failure, this.failedResource);
+            if (this.uncertain) return this.taken = Result.failure(CostFailure.UNCERTAIN);
+            if (this.failure != null) return this.taken = Result.failure(this.failure, this.failedResource);
             List<Entry> plan = this.plan();
-            if (plan == null) return this.taken = PaymentResult.denied(CostFailure.INVALID_AMOUNT, null);
+            if (plan == null) return this.taken = Result.failure(CostFailure.INVALID_AMOUNT);
             this.closed = true;
             this.paying = true;
             try {
@@ -137,28 +135,30 @@ public final class CostPayment {
         }
     }
 
-    private PaymentResult settle(List<Entry> plan) {
+    private Result<List<Debit>> settle(List<Entry> plan) {
         for (Entry entry : plan) {
-            ResultWithData<List<Debit>> simulated = entry.transaction().execute(true);
-            if (simulated.isFailure()) return PaymentResult.denied(simulated.failure(), simulated.failedResource());
+            Result<List<Debit>> simulated = entry.transaction().execute(true);
+            if (simulated instanceof Result.FailureResult<?>)
+                return Result.failure(simulated.getFailure().orElseThrow());
         }
         List<Debit> debits = new ArrayList<>(plan.size());
         // From here on a store may really be written, so an answer that never comes back leaves the bill unanswered.
         this.uncertain = true;
         for (Entry entry : plan) {
             try {
-                ResultWithData<List<Debit>> result = entry.transaction().execute(false);
-                debits.addAll(result.getData());
-                if (result.isFailure())
+                Result<List<Debit>> result = entry.transaction().execute(false);
+                debits.addAll(result.getData().orElse(List.of()));
+                if (result instanceof Result.FailureResult<?>)
                     LOGGER.warn("Cost deduction failed for {} (origin {}, reason {}, resource {}); continuing payment",
-                            entry.transaction().target().label(), entry.context().origin(), result.failure(), result.failedResource());
+                            entry.transaction().target().label(), entry.context().origin(), result.getFailure().orElse(null),
+                            result.getFailure().flatMap(Failure::resource).orElse(null));
             } catch (RuntimeException exception) {
                 LOGGER.warn("Cost deduction threw for {} (origin {}); continuing payment with known debits only",
                         entry.transaction().target().label(), entry.context().origin(), exception);
             }
         }
         this.uncertain = false;
-        return PaymentResult.paid(debits);
+        return Result.success(debits);
     }
 
     /**
@@ -284,17 +284,17 @@ public final class CostPayment {
     }
 
     /**
-     * Why this bill was last refused while being priced; null while it was priced in full.
+     * Why this bill was last refused while being priced; empty while it was priced in full.
      */
-    public @Nullable Failure failure() {
-        return this.failure;
+    public Optional<Failure> failure() {
+        return Optional.ofNullable(this.failure);
     }
 
     /**
      * The resource that ran out, when the last refusal named one.
      */
-    public @Nullable Identifier failedResource() {
-        return this.failedResource;
+    public Optional<Identifier> failedResource() {
+        return Optional.ofNullable(this.failedResource);
     }
 
     private @Nullable List<Entry> plan() {
@@ -335,38 +335,15 @@ public final class CostPayment {
     }
 
     /**
-     * A preflight refusal, or a completed real pass with its known debits; success does not promise full collection.
+     * What a completed real pass reported as really taken, including partial debits from a failed fee, as the id-keyed
+     * table a listener, a script or a result names resources in.
      */
-    public static final class PaymentResult extends Result {
-        private final List<Debit> debits;
-
-        private PaymentResult(@Nullable Failure failure, @Nullable Identifier failedResource, List<Debit> debits) {
-            super(failure, failedResource);
-            this.debits = List.copyOf(debits);
+    public static Map<Identifier, Double> resources(List<Debit> debits) {
+        Map<Identifier, Double> reported = new LinkedHashMap<>();
+        for (Debit debit : debits) {
+            if (!(debit.target() instanceof CostTarget.Account target)) continue;
+            reported.merge(HolderHelper.id(target.resource()), debit.amount(), Double::sum);
         }
-
-        static PaymentResult paid(List<Debit> debits) {
-            return new PaymentResult(null, null, debits);
-        }
-
-        static PaymentResult denied(Failure failure, @Nullable Identifier failedResource) {
-            return new PaymentResult(failure, failedResource, List.of());
-        }
-
-        /**
-         * What was reported as really taken, including partial debits from a failed fee.
-         */
-        public List<Debit> debits() {
-            return this.debits;
-        }
-
-        public Map<Identifier, Double> resources() {
-            Map<Identifier, Double> reported = new LinkedHashMap<>();
-            for (Debit debit : this.debits) {
-                if (!(debit.target() instanceof CostTarget.Account target)) continue;
-                reported.merge(HolderHelper.id(target.resource()), debit.amount(), Double::sum);
-            }
-            return reported;
-        }
+        return reported;
     }
 }

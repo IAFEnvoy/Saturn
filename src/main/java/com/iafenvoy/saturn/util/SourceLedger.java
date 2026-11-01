@@ -1,5 +1,7 @@
 package com.iafenvoy.saturn.util;
 
+import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.SetMultimap;
 import com.iafenvoy.saturn.util.codec.CollectionCodecs;
 import com.mojang.serialization.Codec;
 import net.minecraft.resources.Identifier;
@@ -13,13 +15,13 @@ import java.util.Map.Entry;
  * means the same thing in both. Iteration order is first-held order, which keeps snapshots stable.
  */
 public final class SourceLedger<K> {
-    private final Map<K, Set<Identifier>> sources = new LinkedHashMap<>();
+    private final SetMultimap<K, Identifier> sources = LinkedHashMultimap.create();
 
     public SourceLedger() {
     }
 
     public SourceLedger(Map<K, List<Identifier>> snapshot) {
-        snapshot.forEach((key, values) -> this.sources.put(key, new LinkedHashSet<>(values)));
+        snapshot.forEach(this.sources::putAll);
     }
 
     public static <K> Codec<SourceLedger<K>> codec(Codec<K> keyCodec) {
@@ -31,8 +33,7 @@ public final class SourceLedger<K> {
     }
 
     public Set<Identifier> of(K key) {
-        Set<Identifier> values = this.sources.get(key);
-        return values == null ? Set.of() : Set.copyOf(values);
+        return Set.copyOf(this.sources.get(key));
     }
 
     public boolean holds(K key) {
@@ -40,53 +41,45 @@ public final class SourceLedger<K> {
     }
 
     public boolean holds(K key, Identifier source) {
-        Set<Identifier> values = this.sources.get(key);
-        return values != null && values.contains(source);
+        return this.sources.containsEntry(key, source);
     }
 
     public boolean heldBy(Identifier source) {
-        return this.sources.values().stream().anyMatch(values -> values.contains(source));
+        return this.sources.containsValue(source);
     }
 
     public Set<K> keysHeldBy(Identifier source) {
         Set<K> keys = new LinkedHashSet<>();
-        this.sources.forEach((key, values) -> {
+        this.sources.asMap().forEach((key, values) -> {
             if (values.contains(source)) keys.add(key);
         });
         return keys;
     }
 
     public Set<Identifier> allSources() {
-        Set<Identifier> all = new LinkedHashSet<>();
-        this.sources.values().forEach(all::addAll);
-        return all;
+        return new LinkedHashSet<>(this.sources.values());
     }
 
     public Set<Entry<K, Identifier>> entries() {
-        Set<Entry<K, Identifier>> entries = new LinkedHashSet<>();
-        this.sources.forEach((key, values) -> values.forEach(source -> entries.add(Map.entry(key, source))));
-        return entries;
+        return new LinkedHashSet<>(this.sources.entries());
     }
 
     public int size() {
-        return this.sources.size();
+        return this.sources.keySet().size();
     }
 
     // Returns whether the source was added, i.e. it was not already holding that key.
     public boolean grant(K key, Identifier source) {
-        return this.sources.computeIfAbsent(key, ignored -> new LinkedHashSet<>()).add(source);
+        return this.sources.put(key, source);
     }
 
     // Returns whether it was holding the key; the caller asks {@link #holds} whether that was the last source.
     public boolean revoke(K key, Identifier source) {
-        Set<Identifier> values = this.sources.get(key);
-        if (values == null || !values.remove(source)) return false;
-        if (values.isEmpty()) this.sources.remove(key);
-        return true;
+        return this.sources.remove(key, source);
     }
 
     public boolean drop(K key) {
-        return this.sources.remove(key) != null;
+        return !this.sources.removeAll(key).isEmpty();
     }
 
     // Replaces one source's whole contribution: release what it no longer wants, grant what it wants and lacks.
@@ -99,7 +92,7 @@ public final class SourceLedger<K> {
     public boolean reconcile(Identifier source, Collection<K> desired, Collection<K> released) {
         Set<K> wanted = new LinkedHashSet<>(desired);
         List<K> previous = new ArrayList<>();
-        this.sources.forEach((key, values) -> {
+        this.sources.asMap().forEach((key, values) -> {
             if (values.contains(source)) previous.add(key);
         });
         boolean changed = false;
@@ -119,7 +112,7 @@ public final class SourceLedger<K> {
 
     public Map<K, List<Identifier>> snapshot() {
         Map<K, List<Identifier>> snapshot = new LinkedHashMap<>();
-        this.sources.forEach((key, values) -> snapshot.put(key, List.copyOf(values)));
+        this.sources.asMap().forEach((key, values) -> snapshot.put(key, List.copyOf(values)));
         return snapshot;
     }
 }

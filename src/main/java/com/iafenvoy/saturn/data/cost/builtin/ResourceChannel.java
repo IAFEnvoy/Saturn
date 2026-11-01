@@ -9,8 +9,9 @@ import com.iafenvoy.saturn.data.resource.Resource;
 import com.iafenvoy.saturn.runtime.resource.ResourceService;
 import com.iafenvoy.saturn.runtime.resource.ResourceTransactions;
 import com.iafenvoy.saturn.runtime.resource.ResourceTransactions.Evaluation;
+import com.iafenvoy.saturn.runtime.resulting.Failure;
 import com.iafenvoy.saturn.runtime.resulting.Failures;
-import com.iafenvoy.saturn.runtime.resulting.ResultWithData;
+import com.iafenvoy.saturn.runtime.resulting.Result;
 import com.iafenvoy.saturn.runtime.resulting.failures.CostFailure;
 import com.iafenvoy.saturn.util.MiscUtil;
 import com.iafenvoy.saturn.util.formula.FormulaContext;
@@ -64,13 +65,14 @@ public final class ResourceChannel {
         }
 
         @Override
-        protected ResultWithData<List<Debit>> perform(boolean simulate) {
+        protected Result<List<Debit>> perform(boolean simulate) {
             if (this.account == null) return refused(CostFailure.NO_CHANNEL);
             LivingEntity payer = this.context.payer();
-            ResultWithData<Map<Identifier, Double>> result = ResourceTransactions.tryConsume(payer,
+            Result<Map<Identifier, Double>> result = ResourceTransactions.tryConsume(payer,
                     simulate ? this.account.copy() : this.account,
                     new Evaluation(Map.of(this.resource, this.amount())));
-            if (result.isFailure()) return refused(Failures.INSUFFICIENT_RESOURCE, result.failedResource());
+            if (result instanceof Result.FailureResult<?>)
+                return refused(Failures.INSUFFICIENT_RESOURCE, result.getFailure().flatMap(Failure::resource).orElse(null));
             // A check takes nothing, so it has nothing to report: the write is the account's, and the debit names what
             // that write really left behind rather than what was asked for.
             if (simulate) return took(List.of());
