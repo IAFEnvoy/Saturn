@@ -2,6 +2,7 @@
   "command.saturn.information.all": "%s 的信息（%s 项）",
   "command.saturn.information.group": "%s 的信息 — %s（%s 项）",
   "command.saturn.information.unknown_group": "未知的信息分组：%s",
+  "command.saturn.information.too_large": "信息过多，无法打开界面，请指定分组后重试。",
   "key.category.saturn.general": "Saturn",
   "key.saturn.hud_layout": "编辑 HUD 布局",
   "hud.saturn.resource_column.left": "资源条（左）",

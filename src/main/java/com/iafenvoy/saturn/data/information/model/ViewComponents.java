@@ -9,12 +9,12 @@ import net.minecraft.network.chat.contents.KeybindContents;
 import net.minecraft.network.chat.contents.PlainTextContents;
 import net.minecraft.network.chat.contents.TranslatableContents;
 
-final class ViewComponents {
+public final class ViewComponents {
     private ViewComponents() {
     }
 
     // Component.copy() shares siblings and translatable arguments. Plain UI text can be detached without registries.
-    static Component copy(Component source) {
+    public static Component copy(Component source) {
         if (source.getStyle().getHoverEvent() != null || source.getStyle().getClickEvent() != null)
             return serializedCopy(source);
         ComponentContents contents = source.getContents();

@@ -12,8 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 public sealed interface InformationValue {
-    Codec<InformationValue> CODEC = Codec.recursive("PlayerInformationValue", self -> Type.CODEC.dispatch(
-            "type", InformationValue::type, type -> codec(type, self)));
+    Codec<InformationValue> CODEC = Codec.recursive("PlayerInformationValue", self -> Type.CODEC.dispatch("type", InformationValue::type, type -> codec(type, self)));
 
     Type type();
 

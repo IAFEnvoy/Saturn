@@ -1,12 +1,13 @@
 package com.iafenvoy.saturn.screen.information;
 
+import com.iafenvoy.saturn.data.information.InformationGroup;
 import com.iafenvoy.saturn.data.information.InformationText;
-import com.iafenvoy.saturn.data.information.model.InfomationGroup;
 import com.iafenvoy.saturn.data.information.model.InformationDocument;
-import com.iafenvoy.saturn.data.information.model.InformationRowResult;
+import com.iafenvoy.saturn.data.information.model.InformationEntry;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.Holder;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
@@ -24,35 +25,34 @@ import java.util.Set;
 public final class PlayerInformationScreen extends Screen {
     private final @Nullable Screen parent;
     private final InformationDocument document;
-    private final Optional<Set<InfomationGroup>> selectedGroups;
+    private final Set<Holder<InformationGroup>> selectedGroups;
     private final List<Line> lines = new ArrayList<>();
     private int scroll;
 
     public PlayerInformationScreen(@Nullable Screen parent, InformationDocument document) {
-        this(parent, document, Optional.empty());
+        this(parent, document, Set.of());
     }
 
-    public PlayerInformationScreen(@Nullable Screen parent, InformationDocument document, Set<InfomationGroup> groups) {
-        this(parent, document, Optional.of(Set.copyOf(groups)));
-    }
-
-    private PlayerInformationScreen(@Nullable Screen parent, InformationDocument document, Optional<Set<InfomationGroup>> groups) {
+    /**
+     * An empty selection shows all groups and ungrouped rows.
+     */
+    public PlayerInformationScreen(@Nullable Screen parent, InformationDocument document, Set<Holder<InformationGroup>> groups) {
         super(Component.translatable("screen.saturn.player_information"));
         this.parent = parent;
         this.document = document;
-        this.selectedGroups = groups;
+        this.selectedGroups = Set.copyOf(groups);
     }
 
     @Override
     protected void init() {
         this.lines.clear();
-        for (InfomationGroup group : this.document.groups()) {
-            if (this.selectedGroups.isPresent() && !this.selectedGroups.get().contains(group)) continue;
-            this.addLines(group.title(), Optional.empty(), 0xFFFFD24A);
-            for (InformationRowResult row : this.document.rows(group)) this.addRow(row);
+        for (Holder<InformationGroup> group : this.document.groups()) {
+            if (!this.selectedGroups.isEmpty() && !this.selectedGroups.contains(group)) continue;
+            this.addLines(group.value().title(), Optional.empty(), 0xFFFFD24A);
+            for (InformationEntry row : this.document.rows(group)) this.addRow(row);
         }
         if (this.selectedGroups.isEmpty()) {
-            List<InformationRowResult> ungrouped = this.document.rows().stream().filter(row -> row.groups().isEmpty()).toList();
+            List<InformationEntry> ungrouped = this.document.rows().stream().filter(row -> row.groups().isEmpty()).toList();
             if (!ungrouped.isEmpty())
                 this.addLines(Component.translatable("info.saturn.group.ungrouped"), Optional.empty(), 0xFFFFD24A);
             ungrouped.forEach(this::addRow);
@@ -64,13 +64,13 @@ public final class PlayerInformationScreen extends Screen {
                 .bounds(this.width / 2 - 60, this.height - 28, 120, 20).build());
     }
 
-    private void addRow(InformationRowResult row) {
-        int color = switch (row.content().tone()) {
+    private void addRow(InformationEntry row) {
+        int color = switch (row.tone()) {
             case NORMAL -> 0xFFE0E4EC;
             case POSITIVE -> 0xFF55FF55;
             case WARNING -> 0xFFFFAA00;
         };
-        for (Component text : InformationText.lines(row.content())) this.addLines(text, row.content().tooltip(), color);
+        for (Component text : InformationText.lines(row)) this.addLines(text, row.tooltip(), color);
     }
 
     private void addLines(Component text, Optional<Component> tooltip, int color) {

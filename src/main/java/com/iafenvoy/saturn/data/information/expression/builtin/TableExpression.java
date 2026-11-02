@@ -7,6 +7,7 @@ import com.iafenvoy.saturn.data.information.expression.InformationExpression;
 import com.iafenvoy.saturn.data.information.getter.EntityValueGetter;
 import com.iafenvoy.saturn.data.information.model.InformationValue;
 import com.iafenvoy.saturn.data.information.model.MissingReason;
+import com.iafenvoy.saturn.data.information.model.ViewComponents;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.MapCodec;
@@ -70,12 +71,12 @@ public record TableExpression(InformationExpression source, String as, Optional<
         ).apply(i, TableColumn::new));
 
         public TableColumn {
-            label = new InformationValue.Text(label).text();
+            label = ViewComponents.copy(label);
         }
 
         @Override
         public Component label() {
-            return new InformationValue.Text(this.label).text();
+            return ViewComponents.copy(this.label);
         }
     }
 }

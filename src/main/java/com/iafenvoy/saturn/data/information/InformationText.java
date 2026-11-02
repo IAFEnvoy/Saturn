@@ -1,6 +1,6 @@
 package com.iafenvoy.saturn.data.information;
 
-import com.iafenvoy.saturn.data.information.model.InformationRowContent;
+import com.iafenvoy.saturn.data.information.model.InformationEntry;
 import com.iafenvoy.saturn.data.information.model.InformationValue;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -17,7 +17,7 @@ public final class InformationText {
     private InformationText() {
     }
 
-    public static List<Component> lines(InformationRowContent row) {
+    public static List<Component> lines(InformationEntry row) {
         List<Component> values = lines(row.value());
         List<Component> result = new ArrayList<>();
         for (int i = 0; i < values.size(); i++)

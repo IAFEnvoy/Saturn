@@ -1,6 +1,6 @@
 # 数据驱动的玩家信息行
 
-信息行通过数据包定义，从调用方传入的 `PlayerView` 生成 `InformationRowResult`。`InformationRow` 是执行定义，`InformationGroup` 引用行定义；`InfomationGroup` 是生成结果中的组元数据。参数化 getter 负责确认实体事实；表达式负责取值、计算和组织展示，不寻找实体、不读取玩家文件，也不运行玩法结算。
+信息行通过数据包定义，从调用方传入的 `PlayerView` 生成扁平的 `InformationEntry`。`InformationRow` 是行定义，`InformationGroup` 是引用行的组定义；结果通过 Holder 直接引用这两种定义，不再复制另一套 Row/Group 元数据。参数化 getter 负责确认实体事实；表达式负责取值、计算和组织展示，不寻找实体、不读取玩家文件，也不运行玩法结算。
 
 ## 注册表与目录
 
@@ -21,7 +21,7 @@ data/<namespace>/tags/saturn/information_row/<path>.json
 
 文件的 namespace 和 path 决定条目 ID，文件中不再写 `id`。Group 和行定义通过原生注册表同步；玩家事实、信息文档及其权限和网络仍由宿主处理。这两种定义遵循原生动态注册表的世界加载生命周期，修改后需要重新加载世界/重启服务器；没有额外实现 `/reload` 热更新服务。
 
-内置 3 个 Group 和 16 条信息行均位于 `src/main/resources/data/saturn/saturn/`，可以直接参考和覆盖。代码中已移除固定内置信息行 provider。
+内置 3 个 Group 和 16 条信息行均位于 `src/main/resources/data/saturn/saturn/`，可以直接参考和覆盖。所有信息行和组都由这两个数据包注册表加载，代码只注册 getter / expression 等固有类型。
 
 ## Group 引用行与标签
 
@@ -61,7 +61,7 @@ Codec 复用 `RegistryCodecs.holderOrTag(SaturnResourceKeys.INFORMATION_ROW).lis
 - 单组查询和 `document.rows(group)` 均按行 `order`、ID 排序。Group 的 rows/标签展开顺序只决定选取范围，显示顺序仍由 Row order 决定。
 - 默认分组页面在每个引用该 Row 的组中展示它，未分组行显示在“其他信息”下；按组打开只展示所选组。平面卡片遍历 `document.rows()` 可以避免重复展示。
 
-Group 身份仍只取 ID，已有 `InfomationGroup` 常量可以继续用于筛选。数据包同 ID Group 会替换代码 Group 的标题、顺序及整份行选取范围；从组中移出的行仍可全取。
+`PlayerInformation.groups(view[, context])` 从当前注册表取得 `Holder<InformationGroup>` 用于筛选，标题与顺序直接读取其 value；组选择应使用相同注册表上下文的 Holder。数据包按原生优先级覆盖同 ID Group 的整份定义；从组中移出的行仍可全取。
 
 ## 行定义
 
@@ -96,7 +96,7 @@ Group 身份仍只取 ID，已有 `InfomationGroup` 常量可以继续用于筛�
 | `value` | 必填 | 生成内容的表达式 |
 | `order` | `0` | 行顺序 |
 | `importance` | `0` | 任意 int，越大越重要，与顺序独立 |
-| `enabled` | `true` | 是否启用；`false` 同时屏蔽同 ID Java provider |
+| `enabled` | `true` | 是否启用；`false` 不生成该行 |
 | `label_expression` | 无 | 动态标题，成功时覆盖 `label` |
 | `tooltip` | 无 | 静态 Component 提示 |
 | `tooltip_expression` | 无 | 动态提示，成功时覆盖 `tooltip` |
@@ -106,7 +106,7 @@ Group 身份仍只取 ID，已有 `InfomationGroup` 常量可以继续用于筛�
 
 动态标题/提示不可用时保留静态回退；其字段依赖仍会保留。`missing: hide` 只判断整条内容，列表或表格中的缺失单元不会让整行消失。禁用定义仍需满足完整结构，例如包含 `label` 和 `value`。Row 不声明所属 Group；原型格式的未知 `groups` 键按普通 Codec 规则忽略，应把成员关系迁到 Group 的 rows 或行标签。
 
-数据包同 ID 覆盖按原生包优先级选择整个定义，不做 JSON 属性合并。同 ID Row 数据定义优先于 Java provider；无论其被禁用还是运行时隐藏，都不会再次调用原 Java provider。Group 仅选择行，不改变其 provider、importance 或表达式。
+数据包同 ID 覆盖按原生包优先级选择整个定义，不做 JSON 属性合并。所有 Row 都来自当前注册表，无 Java provider 回退。Group 仅选择行，不改变行的 importance 或表达式。
 
 ## 表达式如何工作
 
@@ -257,31 +257,26 @@ static {
 // 从实体或带 RegistryOps 解码的快照取得原有上下文：
 var view = PlayerViews.parse(player);
 var all = PlayerInformation.collectAll(view);
-var basic = PlayerInformation.collect(view, PlayerInformation.BASIC);
+var basicGroup = PlayerInformation.groups(view).stream()
+        .filter(group -> group.unwrapKey().orElseThrow().identifier().equals(Identifier.parse("saturn:basic"))).findFirst().orElseThrow();
+var basic = PlayerInformation.collect(view, basicGroup);
 var groups = PlayerInformation.groups(view);
 
 // 手工创建、没有注册表上下文的视图，由宿主显式提供当前世界注册表：
 var context = new InformationContext("zh_cn", registries);
 var allWithDefinitions = PlayerInformation.collectAll(view, context);
-var selected = PlayerInformation.collect(view, context, Set.of(PlayerInformation.BASIC));
+var selected = PlayerInformation.collect(view, context, Set.copyOf(PlayerInformation.groups(view, context)));
 ```
 
-`InformationContext` 显式传入的 provider 优先；否则读取 `PlayerView.serializationOps()` 中随视图携带的 RegistryOps。默认接口实现返回 JsonOps，`PlayerViewSnapshot` 会保留自身编解码上下文。没有注册表的视图只收集代码注册行，不会从某个全局世界补入定义，也不会偷偷读取当前客户端玩家。跨世界使用或希望使用当前定义时，应明确传当前 provider。
+`InformationContext` 显式传入的 provider 优先；否则读取 `PlayerView.serializationOps()` 中随视图携带的 RegistryOps。默认接口实现返回 JsonOps，`PlayerViewSnapshot` 会保留自身编解码上下文。没有注册表的视图返回空行和空组列表，不会从某个全局世界补入定义，也不会偷偷读取当前客户端玩家。跨世界使用或希望使用当前定义时，应明确传当前 provider。
 
-`PlayerInformation.groups()` 仍只枚举代码登记的组；`groups(view[, context])` 枚举合并数据定义后的组；`document.groups()` 只包含实际生成行所属的组。
+`groups(view[, context])` 枚举当前 Group 注册表，包括空组；`document.groups()` 只包含实际生成行所属的组。成员关系始终来自当前注册表定义，不存在独立组元数据对象。手工视图也可以显式传入只含 Row 注册表的 provider，此时全取结果为未分组行。
 
-现有 Java provider 注册继续可用，可以不指定组独立注册，也保留带组的兼容重载：
+旧 `PlayerInformation.register*`、`PlayerInformationRegistry`、`PlayerInformationRowProvider` 和无参代码组枚举已删除。将旧 provider 逻辑迁到 getter / expression 的固有类型注册表，并通过 Row/Group JSON 引用，不再存在代码行/组与数据定义合并的路径。内置 `BASIC` / `STATUS` / `EQUIPMENT` 元数据常量也已移除，按 ID 从当前 Group 注册表查询。
 
-```java
-PlayerInformation.register(id, order, importance, provider);
-PlayerInformation.register(id, List.of(groupA, groupB), order, importance, provider);
-```
+求值结果统一为 `InformationEntry(row, groups, label, value, tooltip)`：row 为 `Holder<InformationRow>`，groups 为 `Set<Holder<InformationGroup>>`。直接读取 `entry.value()`、`entry.label()` 和 `entry.tooltip()`；`entry.id()/order()/importance()/tone()/sourceFields()` 从 Row Holder 取得定义信息。旧重复组模型、Result/Content 嵌套及相应的转换方法已删除。
 
-带组的 Java 重载本质上是“登记行，再把 ID 加入代码 Group 的默认选取范围”，不在 Row 定义中保存组。数据包同 ID Group 会替换这个默认范围。纯 Java provider 没有原生 Row Holder，因此不能直接写入行标签或作为 Group 的 Holder 引用；需要参与数据包选取时，应提供 Row 数据定义/表达式 Type。
-
-原单组重载、importance 默认 0、单组构造器均保留。结果类改名 `InformationRowResult`，保存 `List<InfomationGroup> groups`；旧 `group()` 兼容方法在有组时返回首项、无组时抛出 NoSuchElementException，已标记弃用。新结果 Codec 写 `groups` 数组，可读旧 `group` 对象和缺少 importance 的旧结果；旧版不能读取仅有 groups 的新结果，联网两端应升级到匹配版本。现在的 `InformationRow` 专指执行定义。
-
-Group 定义里的 `rows` 是 Row Holder/Tag 引用数组；Row 定义不含组。生成结果里的 `groups` 是收集器计算的、携带标题与顺序的 Group 对象数组，可为空。这两种 Codec 的用途不同：定义用于执行，结果用于宿主传输和展示，不能互换。
+定义与引用的 Codec 采用其他模块的相同约定：`InformationRow.DIRECT_CODEC` / `InformationGroup.DIRECT_CODEC` 用于数据包对象，`CODEC` 用于注册表 Holder。生成结果的 Codec 编码 row ID、groups ID 数组和 label/value/tooltip，不复制定义的标题、排序、importance 或依赖来源。编解码文档须使用包含对应定义的 RegistryOps；长期归档保存 `PlayerViewSnapshot`，展示时根据当前定义重新收集。Row/Group 数据包格式保持不变；旧展示结果格式已移除，网络两端应使用匹配版本。
 
 旧 `saturn:field` 表达式需迁为 `saturn:getter`，例如把 `"field":"saturn:health"` 换成 `"getter":{"type":"saturn:health"}`；path 可保持。旧 player_view_field 代码注册表及 Field API 已移除。固定选项使用 enum Codec（getter 的 value、算术/比较/逻辑 operation、missing、展示值 type 等），非法枚举值解码为 DataResult 错误。
 
@@ -290,11 +285,13 @@ Group 定义里的 `rows` 是 Row Holder/Tag 引用数组；Row 定义不含组�
 ## 指令检查输出
 
 ```mcfunction
-/saturn information @s
-/saturn information @s saturn:basic
+/information query @s
+/information query @s saturn:basic
+/information gui @s
+/information gui @s saturn:basic
 ```
 
-指令要求 gamemaster 权限，target 支持玩家名、UUID 和单实体选择器，group 支持补全。使用同一 PlayerViews → PlayerInformation → InformationText 路径；省略 group 全取，只向执行者输出标题及各行文字，返回逻辑行数。未知组报错，空组显示暂无信息。支持非玩家实体，玩家专用数据按缺失策略处理。
+两个分支都要求管理员权限（`Permissions.COMMANDS_ADMIN`，3 级），target 支持玩家名、UUID 和单实体选择器，group 支持补全。省略 group 全取，指定 group 按组筛选，两种模式返回逻辑行数。`query` 使用 PlayerViews → PlayerInformation → InformationText 路径，只向执行者输出标题及各行文字；`gui` 要求玩家执行，将同一份已求值文档及分组选择只发送给执行者，打开默认信息界面，不自动刷新。未知组报错，空组显示暂无信息。支持非玩家实体，玩家专用数据按缺失策略处理。对应的 `/saturn information query/gui ...` 始终保留；顶层别名由默认开启的 `commands.information` 配置控制，重名时跳过。
 
 ## 验证
 
@@ -302,4 +299,4 @@ Group 定义里的 `rows` 是 Row Holder/Tag 引用数组；Row 定义不含组�
 .\gradlew.bat compileJava verifyPlayerViews runGameTestServer build --console=plain
 ```
 
-`verifyPlayerViews` 验证独立核心契约；main 源码集的 `gametest.InformationTests` / `EntityValueGetterTests` / `InformationCommandTests` 验证 getter/表达式/行/Group 注册表、16 条 JSON、带参及默认查询、实时与存档解析、NBT/JSON 往返、Component/物品、缺失投影、路径、条件、覆盖、Holder/Tag、展开去重、依赖过滤和新旧结果 Codec。指令通过真实 dispatcher 执行并核对文字输出、分组、补全、错误、权限与非玩家查询。GameTest 仅在 NeoForge 启用测试时注册，不使用 test-mod；客户端视觉效果仍需人工验收。
+`verifyPlayerViews` 验证独立核心契约；main 源码集的 `gametest.InformationTests` / `EntityValueGetterTests` / `InformationCommandTests` 验证 getter/表达式/行/Group 注册表、16 条 JSON、带参及默认查询、实时与存档解析、NBT/JSON 往返、Component/物品、缺失投影、路径、条件、覆盖、Holder/Tag、展开去重、依赖过滤和扁平结果的 Holder 引用 Codec。指令通过真实 dispatcher 执行并核对文字输出、分组、补全、错误、权限与非玩家查询。GameTest 仅在 NeoForge 启用测试时注册，不使用 test-mod；客户端视觉效果仍需人工验收。

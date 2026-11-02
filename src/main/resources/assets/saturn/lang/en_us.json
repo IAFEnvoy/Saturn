@@ -2,6 +2,7 @@
   "command.saturn.information.all": "Information for %s (%s rows)",
   "command.saturn.information.group": "Information for %s — %s (%s rows)",
   "command.saturn.information.unknown_group": "Unknown information group: %s",
+  "command.saturn.information.too_large": "Too much information to open in a screen. Select a group and try again.",
   "key.category.saturn.general": "Saturn",
   "key.saturn.hud_layout": "Edit HUD Layout",
   "hud.saturn.resource_column.left": "Resource Bars (Left)",

@@ -8,64 +8,88 @@ Saturn 根据**调用方传入的数据**生成只读玩家视图与信息行。
 import com.iafenvoy.saturn.data.information.PlayerViews;
 import com.iafenvoy.saturn.data.information.PlayerInformation;
 import com.iafenvoy.saturn.data.information.getter.EntityValueGetters;
+import net.minecraft.resources.Identifier;
 
 var view = PlayerViews.parse(player);
 var health = view.read(EntityValueGetters.HEALTH);
 var all = PlayerInformation.collectAll(view);
-var basic = PlayerInformation.collect(view, PlayerInformation.BASIC);
+var basicGroup = PlayerInformation.groups(view).stream()
+        .filter(group -> group.unwrapKey().orElseThrow().identifier().equals(Identifier.parse("saturn:basic"))).findFirst().orElseThrow();
+var basic = PlayerInformation.collect(view, basicGroup);
 ```
 
-`all.rows()` 是跨分组的完整有序行列表，`basic.rows()` 只包含指定分组。`all.rows(group)` 也能对已有文档筛选，`all.groups()` 取得文档中的分组。Group 的 rows 通过 Holder/Tag 引用独立 Row，同一行可被多个组选择，全取/多组并集只产生一份行。全取包含未被任何组引用的行，它们的 groups 为空。`row.groups()` 获取全部组，旧 `row.group()` 仅为兼容返回第一项，无组时不可调用。
+`all.rows()` 是跨分组的完整有序行列表，`basic.rows()` 只包含指定分组。`all.rows(group)` 也能对已有文档筛选，`all.groups()` 取得文档中的分组。Group 的 rows 通过 Holder/Tag 引用独立 Row，同一行可被多个组选择，全取/多组并集只产生一份行。全取包含未被任何组引用的行，它们的 groups 为空。`row.groups()` 获取全部组，单组访问器 `row.group()` 已移除。
 
-分组类型为 `InfomationGroup`，主要用于 MXT 的分栏等前端布局，是展示元数据，不是取数前提。**全取和按分组取同时保留**。显式传入空的分组集合表示不取任何行，不代表全部。
+分组直接使用注册表中的 `Holder<InformationGroup>`，标题通过 `group.value().title()` 读取，ID 通过 `group.unwrapKey().orElseThrow().identifier()` 读取。**全取和按分组取同时保留**。显式传入空的分组集合表示不取任何行，不代表全部。
+
+例如选取当前定义的所有组，未分组行仍只通过全取入口包含：
 
 ```java
 var selected = PlayerInformation.collect(view, InformationContext.DEFAULT,
-        Set.of(PlayerInformation.BASIC, PlayerInformation.STATUS));
+        Set.copyOf(PlayerInformation.groups(view)));
 ```
 
 包结构如下，服务入口直接位于 `data.information`：
 
 | 包 | 主要内容 |
 | --- | --- |
-| `com.iafenvoy.saturn.api.playerview` | `PlayerView`、行 provider、writer 与宿主查询契约 |
-| `com.iafenvoy.saturn.data.information` | `PlayerViews`、`PlayerViewSnapshot`、`PlayerInformation`、`PlayerInformationRegistry`、`InformationText`，以及定义 `InformationRow` / `InformationGroup` |
+| `com.iafenvoy.saturn.api.playerview` | `PlayerView`、writer 与宿主查询契约 |
+| `com.iafenvoy.saturn.data.information` | `PlayerViews`、`PlayerViewSnapshot`、`PlayerInformation`、`InformationText`，以及定义 `InformationRow` / `InformationGroup` |
 | `com.iafenvoy.saturn.data.information.getter` | `EntityValueGetter`、内置常量 `EntityValueGetters`、参数身份 `EntityValueKey` |
 | `com.iafenvoy.saturn.data.information.getter.builtin` | 26 个内置 getter 类型，各自实现实时采集、可选存档读取与快照投影 |
 | `com.iafenvoy.saturn.registry.content` | `SaturnEntityValueGetters`、`SaturnInformationExpressions` 等内置条目注册 |
 | `com.iafenvoy.saturn.data.information.expression` | 表达式接口、求值上下文与中间值 |
 | `com.iafenvoy.saturn.data.information.expression.builtin` | 内置表达式，每个 Type 一个独立实现类 |
-| `com.iafenvoy.saturn.data.information.model` | `InformationRowResult`、`InfomationGroup`、信息文档、快照元数据、查询结果等 DTO |
+| `com.iafenvoy.saturn.data.information.model` | `InformationEntry`、`InformationDocument`、快照元数据、查询结果等数据模型 |
 | `com.iafenvoy.saturn.screen.information` | 客户端默认信息页与 `PlayerInformationScreens` 入口 |
 
-## 数据包定义与 Java 展示行
+## 数据包定义与展示行
 
-内置 16 条行已经迁移到 `saturn:information_row`，分组定义位于 `saturn:information_group`。`InformationRow` 是执行定义，`InformationRowResult` 是求值结果；`InformationGroup` 是组定义，`InfomationGroup` 是展示元数据。成员关系由 Group 的 `rows` 声明，其元素为 `Either<Holder<InformationRow>, TagKey<InformationRow>>`；Row 定义不含 groups。表达式 Type 注册在 `saturn:information_expression_type`，通过带参数 getter 读取数据并组合展示值。完整 JSON 参数、示例、Type 注册和兼容迁移见 [数据驱动信息行](INFORMATION-DATA.md)。
+内置 16 条行已经迁移到 `saturn:information_row`，分组定义位于 `saturn:information_group`。`InformationRow` 和 `InformationGroup` 各自只有一个注册表定义类型。`InformationEntry` 是扁平求值结果，保存 Row Holder、Group Holder 集合及求值后的 label/value/tooltip；标题、顺序、importance、tone 和依赖来源继续从原定义读取。成员关系由 Group 的 `rows` 声明，其元素为 `Either<Holder<InformationRow>, TagKey<InformationRow>>`；Row 定义不含 groups。表达式 Type 注册在 `saturn:information_expression_type`，通过带参数 getter 读取数据并组合展示值。完整 JSON 参数、示例、Type 注册和兼容迁移见 [数据驱动信息行](INFORMATION-DATA.md)。
 
-从 Player 解析或通过 RegistryOps 解码的快照保留其注册表上下文，可直接使用原 collect 入口。没有上下文的手工视图应显式传入 `new InformationContext("zh_cn", registries)`；否则只收集 Java 注册行。Group 和行定义不会缓存到全局世界状态。
-
-以下为保留的 Java 扩展入口：
-
-展示扩展统一注册到 Saturn，所有前端共享。可以使用 `register(id, order, importance, provider)` 独立登记行；以下旧带组重载作为兼容入口，同时把 Row ID 加入代码 Group 的默认选取范围，多组使用 `List.of(groupA, groupB)`：
+查询结果直接使用，无需先取 content：
 
 ```java
-import com.iafenvoy.saturn.data.information.PlayerInformation;
-import com.iafenvoy.saturn.data.information.model.*;
-
-InfomationGroup cultivation = PlayerInformation.registerGroup(
-        Identifier.parse("mxt:cultivation"),
-        Component.translatable("info.mxt.cultivation"), 100);
-
-PlayerInformation.register(Identifier.parse("mxt:realm"), cultivation, 0, 100,
-        (view, context) -> Optional.of(new InformationRowContent(
-                Component.translatable("info.mxt.realm"),
-                new InformationValue.Text(Component.literal("example")),
-                Set.of())));
+for (var entry : all.rows()) {
+    var label = entry.label();
+    var value = entry.value();
+    var tooltip = entry.tooltip();
+    var definition = entry.row().value();
+    var lines = InformationText.lines(entry);
+}
 ```
 
-这是供扩展方参考的示例，示例翻译键由扩展方提供。实际 provider 应读取该模组注册的 getter，并在 `sourceFields` 中声明 getter 类型及依赖（可用 `EntityValueGetters.sources(getter)`），不能在回调里读当前玩家或重新执行玩法结算。
+`InformationDocument` 仅提供有序列表及分组/importance/来源过滤。`InformationRow.CODEC` 和 `InformationGroup.CODEC` 编解码注册表 Holder；各自的 `DIRECT_CODEC` 编解码数据包定义对象，与 Resource/Ability 等模块一致。`InformationEntry.CODEC` 写入 row ID、groups ID 数组及扁平的 label/value/tooltip；编解码需要包含对应定义的 RegistryOps。展示文档依赖当前注册表，长期归档应保存玩家快照，需要展示时重新求值。
 
-五参数注册签名为 `register(id, group, order, importance, provider)`。`importance` 为 int，数值越大越重要，允许负值；保留的四参数注册重载默认传 `0`。`PlayerInformationRegistry.register` 同样提供这两种重载。重要程度与布局顺序分别管理，默认收集仍包含所有启用且满足显示条件的行。多组行的顺序规则见数据驱动文档。
+从 Player 解析或通过 RegistryOps 解码的快照保留其注册表上下文，可直接使用原 collect 入口。没有上下文的手工视图应显式传入 `new InformationContext("zh_cn", registries)`；否则行和组查询返回空结果。Group 和行定义不会缓存到全局世界状态。
+
+旧 `PlayerInformation.register*`、`PlayerInformationRegistry`、`PlayerInformationRowProvider`、无参代码组枚举 `groups()` 和结果单组访问器 `group()` 已移除。`PlayerInformation` 只查询当前注册表并生成文档；所有 Row/Group 都通过数据包注册表定义。Java 扩展只需注册 getter 参数 MapCodec 或 expression 类型，自定义取值与计算再由 JSON 引用。
+
+例如定义 `data/example/saturn/information_row/level.json`：
+
+```json
+{
+  "importance": 100,
+  "label": { "translate": "info.example.level" },
+  "value": {
+    "type": "saturn:getter",
+    "getter": { "type": "saturn:experience" },
+    "path": ["level"]
+  }
+}
+```
+
+再由 `data/example/saturn/information_group/cultivation.json` 引用：
+
+```json
+{
+  "title": { "translate": "info.example.cultivation" },
+  "order": 100,
+  "rows": ["example:level"]
+}
+```
+
+示例翻译键由扩展方提供。行的 `order` 与 `importance` 由 Row 定义持有，Group 声明成员关系。`importance` 越大越重要，允许负值，默认 `0`，与布局顺序分别管理。
 
 例如在内容较少的信息卡片中保留重要程度至少为 50 的行，完整页面仍使用原文档：
 
@@ -75,7 +99,7 @@ var compact = full.withMinimumImportance(50);
 int importance = full.rows().getFirst().importance();
 ```
 
-`withMinimumImportance` 包含等于阈值的行，保持原有展示顺序与来源字段，不修改原文档；也可在按分组收集后使用。定义和结果 Codec 的 `importance` 均默认为 `0`。结果构造器包括 `InformationRowResult(id, group, order, content)`、`InformationRowResult(id, group, order, importance, content)` 和多组版本。结果 Codec 写 `groups` 数组，读取兼容旧 `group` 对象；旧客户端不能读取新格式，联网两端应同步升级。扩展方自行选择重要程度，没有强制等级表。
+`withMinimumImportance` 包含等于阈值的行，保持原有展示顺序与来源字段，不修改原文档；也可在按分组收集后使用。`entry.importance()` 直接读取 Row 定义，默认 `0`。扩展方自行选择重要程度，没有强制等级表。
 
 内置行使用以下重要程度，行 ID 均属于 `saturn` 命名空间：
 
@@ -92,14 +116,13 @@ int importance = full.rows().getFirst().importance();
 
 例如阈值 `80` 展示姓名、生命与经验等级，阈值 `60` 再加入能力、维度、效果与装备，阈值 `50` 再加入饥饿值，阈值 `20` 包含全部内置行。降低阈值可增加内容；未显式设置重要程度的扩展行仍为 `0`，应使用阈值 `0` 或全取入口将其包含。重要程度不改变行的原有分组和显示顺序。
 
-- 注册在模组初始化阶段完成。注册器支持同步登记，不在回调执行期间持有全局锁。
-- 行 ID、order 和 importance 由行注册器持有，Group 持有行选取关系，provider 只返回内容。Java 注册 ID 重复会拒绝；数据包同 ID Row 定义在收集时覆盖 Java 行，禁用定义会屏蔽它；同 ID Group 定义替换代码组的默认行选取范围。
-- 分组按 order、ID 排序，组内行按 order、ID 排序；全取的多组行以所属组排序最靠前者决定跨组顺序。`InfomationGroup` 的身份只取 ID，不受标题语言影响。
-- `Optional.empty()` 表示隐藏；需要展示“未记录”时返回 `InformationValue.Missing`。
+- Getter / expression 类型在模组初始化阶段向固有代码注册表注册，Row / Group 由当前世界的数据包注册表加载。同 ID 定义按原生数据包优先级覆盖。
+- Row 定义的 `enabled: false` 禁用该行，`visible` 和 `missing` 决定条件显示与缺失策略；不存在 Java provider 回退。
+- 分组按 order、ID 排序，组内行按 order、ID 排序；全取的多组行以所属组排序最靠前者决定跨组顺序。查询、结果和界面共用当前注册表的 Group Holder，不再转换为另一套组元数据。
 - 列表、表格和物品集合属于一条逻辑行的内容，可以由界面展开为多行。动态数据不修改全局注册表。
-- 单行 provider 抛出运行时异常会记录并跳过该行，同组其他行继续生成。
+- 单行求值抛出运行时异常会记录并跳过该行，同组其他行继续生成。
 
-内置分组常量均为 `InfomationGroup`：`BASIC`、`STATUS`、`EQUIPMENT`。第三方可向相应行标签添加数据行，或定义自己的组。纯 Java provider 不在原生 Row 注册表里，不能被行标签或 Holder 引用。
+内置分组 ID 为 `saturn:basic`、`saturn:status`、`saturn:equipment`，通过 `PlayerInformation.groups(view[, context])` 获取当前注册表的 Holder。第三方可向相应行标签添加数据行，或定义自己的组。选择组时使用同一注册表上下文中的 Holder。
 
 ## Getter 与缺失值
 
@@ -173,7 +196,7 @@ static {
 
 对应配置是 `{"type":"example:scaled_health","scale":2}`。`codec()` 必须返回注册的参数 Codec；`type()` 从注册表查出 ID。`valueCodec()` 只编解码查询结果，`schemaVersion()` 默认 `1` 且必须为正整数。`capture` 默认 `UNSUPPORTED`，`readSaved` / `fallback` 默认 `NOT_CAPTURED`；`dependencies()` 默认空列表，可声明快照投影需要的宽查询。回调只返回自己的 `ViewValue<T>`，不接收跨查询 writer。
 
-`PlayerViews.parse` 合并三类查询：参数 Codec 能从空对象解码的默认查询、调用方显式请求、当前世界全部启用信息行引用的查询；同时加入 dependencies，并按完整参数 JSON 去重。必填参数类型不会自动枚举全部参数，需由行或调用方请求；Java provider 需要参数查询时也应显式传入。`EntityValueGetters` 提供内置常量、`defaults`、`requireRegistered` 和来源计算 `sources`，不持有字段 Map。
+`PlayerViews.parse` 合并三类查询：参数 Codec 能从空对象解码的默认查询、调用方显式请求、当前世界全部启用信息行引用的查询；同时加入 dependencies，并按完整参数 JSON 去重。必填参数类型不会自动枚举全部参数，需由行或调用方请求；直接查询未被信息行引用的参数时应显式传入。`EntityValueGetters` 提供内置常量、`defaults`、`requireRegistered` 和来源计算 `sources`，不持有字段 Map。
 
 单查询回调抛异常、返回 null 或结果 Codec 编码失败，仅标该查询为 `INVALID`。保存数据返回 `NOT_CAPTURED` 时不创建封套，宿主可用 `builder.contains(getter)` 判断并补入信息；其他明确 missing 会保存。
 
@@ -219,23 +242,33 @@ minecraft.setScreen(PlayerInformationScreens.create(parent, view, group));
 
 默认页面显示传入快照的通用文字行、列表、物品槽位文本和表格，支持滚动和 tooltip。`InformationText` 提供同一套文字投影，AUI/卡片也可以直接渲染类型化 `InformationValue`。
 
+界面的 `selectedGroups` 使用 Set，空集合表示展示全部分组和未分组行；`PlayerInformationScreens.create(..., context, groups)` 同样遵循此约定。直接调用收集器 `PlayerInformation.collect(..., groups)` 时，空集合仍表示不收集任何行。
+
 默认页面按 Group 展示，未分组行进入“其他信息”，多组行分别出现在引用它的组中；按组创建页面只展示指定组。该页面不自动刷新、不请求数据、不提供写操作。人物三维外观预览、加载控制和网络刷新由后续客户端适配完成；当前页面不会按历史 UUID 借用今世实体。MXT、System、Reincarnation 的业务迁移也不包含在本次 Saturn 基础模块中。
 
-## 文字查询指令
+## 聊天与界面查询指令
 
 ```mcfunction
-/saturn information @s
-/saturn information PlayerName saturn:basic
-/saturn information @e[type=minecraft:cow,limit=1] saturn:status
+/information query @s
+/information query PlayerName saturn:basic
+/information query @e[type=minecraft:cow,limit=1] saturn:status
+/information gui @s
+/information gui PlayerName saturn:basic
 ```
 
-`/saturn information <target> [<group>]` 要求 gamemaster 权限。target 为玩家名、UUID 或单实体选择器；省略 group 全取，提供 group 按 ID 筛选，组参数补全当前世界的数据定义和 Java 注册组。非玩家仅能得到其支持的数据，其余按原有缺失策略展示。指令现场解析实体，使用同一 `PlayerInformation` / `InformationText` 路径输出标题、文字行和表格；只回复执行者，返回逻辑行数。未知组给出明确错误，空组给出“暂无信息”。提示和内置行均使用翻译键，客户端按自身语言显示。
+`/information query <target> [<group>]` 与 `/information gui <target> [<group>]` 均要求管理员权限 `Permissions.COMMANDS_ADMIN`（3 级）；普通玩家与仅有 gamemaster 权限的来源不能使用。两种模式同时支持 `/saturn information query/gui ...`。顶层别名默认启用，受 `config/saturn-common.toml` 的 `commands.information` 控制；与其他模组重名时跳过顶层别名。
+
+target 为玩家名、UUID 或单实体选择器；省略 group 全取，提供 group 按 ID 筛选，组参数补全当前世界 Group 注册表中的 ID。非玩家仅能得到其支持的数据，其余按原有缺失策略展示。两种模式现场解析实体，共用 `PlayerInformation` 收集路径，返回逻辑行数。未知组给出明确错误，空组显示“暂无信息”。提示和内置行均使用翻译键，客户端按自身语言显示。
+
+`query` 使用 `InformationText` 输出标题、文字行和表格，只回复执行者，控制台可用。`gui` 要求玩家执行，通过 `network.payload.InformationGuiS2CPayload`（`saturn:information_gui`）只向执行者发送已求值的文档和分组选择，再打开 `PlayerInformationScreen`。载荷使用 `InformationDocument.CODEC` 的注册表感知流编码，保留 Component 样式、tooltip 和分组；按组查询时界面也只显示该组。该入口不发送原始实体快照、不存储归档，也不自动刷新；超过传输大小限制时提示按组查看。客户端和服务端都需要支持此载荷。网络注册统一在 `network.NetworkManager` 的 `RegisterPayloadHandlersEvent` 订阅中完成；专用服只注册载荷类型和 Codec，客户端通过 `MainThreadPayloadHandler` 转到 `ClientNetworkHandler` 打开界面。Payload 仅定义数据和编解码，不自行注册或处理界面。
 
 ## 旧 API 与数据迁移
 
-`PlayerViewField` / `PlayerViewFields`、独立 Contributor / SavedReader 已移除。将每个字段迁成 `EntityValueGetter`，注册参数 MapCodec，将旧结果 Codec 改为 `valueCodec()`；无参可用 `MapCodec.unit(INSTANCE)`。将 `capture(Player)` 改成 `capture(Entity)` 并判断所需实体类型。旧 `view.*` 导入迁到上表的 `data.information.*`；结果 `InformationRow` 改名 `InformationRowResult`。
+`PlayerViewField` / `PlayerViewFields`、独立 Contributor / SavedReader 已移除。将每个字段迁成 `EntityValueGetter`，注册参数 MapCodec，将旧结果 Codec 改为 `valueCodec()`；无参可用 `MapCodec.unit(INSTANCE)`。将 `capture(Player)` 改成 `capture(Entity)` 并判断所需实体类型。旧 `view.*` 导入迁到上表的 `data.information.*`；展示结果统一为 `InformationEntry`。
 
-JSON 的 `{"type":"saturn:field","field":"saturn:health"}` 改成 `{"type":"saturn:getter","getter":{"type":"saturn:health"}}`，可选 path 保留。旧基本快照只要 ID/schema/结果 Codec 一致就能继续读取；参数结果是新扩展，旧版 Codec 会忽略 queries，无法使用或保留它们。新旧网络两端应升级到相同 API/数据格式；本地改动尚未替换宿主的已发布依赖。
+旧 `InfomationGroup`、`InformationRowResult` 和 `InformationRowContent` 已删除。分组改用 `Holder<InformationGroup>`；`row.content().value()` 等调用改为 `entry.value()`，其余展示字段同样直接读取。结果不再另存 id/order/importance/tone/fields，也不再支持旧结果封套；使用匹配版本的两端及同一套注册表。数据包 Row/Group JSON 和玩家快照格式保持原样。
+
+JSON 的 `{"type":"saturn:field","field":"saturn:health"}` 改成 `{"type":"saturn:getter","getter":{"type":"saturn:health"}}`，可选 path 保留。旧基本快照只要 ID/schema/结果 Codec 一致就能继续读取；参数结果是新扩展，旧版 Codec 会忽略 queries，无法使用或保留它们。网络两端及宿主发布依赖应同步升级到匹配的 API/数据格式。
 
 ## 验证
 
@@ -245,4 +278,4 @@ JSON 的 `{"type":"saturn:field","field":"saturn:health"}` 改成 `{"type":"satu
 
 `verifyPlayerViews` 位于独立的 `src/verification/java` 源码集，不进入发布 JAR，不启动游戏、不构造 Player、不创建世界，也不读写玩家存档。独立 fixture 填充真实 getter 注册表，覆盖分组/全取、顺序、故障隔离、快照复制、NBT/JSON 往返、未知扩展、schema、异常/null/无效载荷隔离、宿主补充、明确 missing 优先级、参数身份、快照投影、求值缓存和重要程度/来源过滤。
 
-独立检查使用无需游戏 bootstrap 的数据和数字展示模型。main 源码集 `gametest.InformationTests` / `EntityValueGetterTests` / `InformationCommandTests` 进一步验证原生注册及冻结、带参扩展、实时采集、存档读取、不创建附件、快照脱离可变物品，以及数据包、表达式、Holder/Tag 与文档 Codec。指令测试实际执行全取、分组、补全、错误、权限和非玩家查询，并核对每一行文字。测试及专用 getter 仅在启用 GameTest 时注册；不使用 test-mod，客户端视觉效果仍需人工验收。
+独立检查使用无需游戏 bootstrap 的数据和数字展示模型。main 源码集 `gametest.InformationTests` / `EntityValueGetterTests` / `InformationCommandTests` 进一步验证原生注册及冻结、带参扩展、实时采集、存档读取、不创建附件、快照脱离可变物品，以及数据包、表达式、Holder/Tag 与文档 Codec。指令测试实际执行聊天和 GUI 的全取、分组、补全、错误、权限、别名和非玩家查询，核对每一行文字、接收者及 GUI 载荷往返。测试及专用 getter 仅在启用 GameTest 时注册；不使用 test-mod，客户端视觉效果仍需人工验收。

@@ -11,6 +11,7 @@ import net.neoforged.neoforge.common.ModConfigSpec;
  */
 public final class SaturnConfig {
     public static final ModConfigSpec COMMON_SPEC;
+    public static final ModConfigSpec.BooleanValue INFORMATION_ROOT;
     public static final ModConfigSpec.BooleanValue PROFILER_ROOT;
     public static final ModConfigSpec.BooleanValue ABILITY_ROOT;
     public static final ModConfigSpec.BooleanValue TRIGGERS_ROOT;
@@ -27,6 +28,7 @@ public final class SaturnConfig {
         common.comment("Whether each node is also registered at the top level, next to /saturn.",
                         "A literal another mod already owns at that level is skipped, with one log line.")
                 .push("commands");
+        INFORMATION_ROOT = root(common, "information");
         PROFILER_ROOT = root(common, "profiler");
         ABILITY_ROOT = root(common, "ability");
         TRIGGERS_ROOT = root(common, "triggers");

@@ -128,12 +128,13 @@ Saturn 只有两个实体附件：`SaturnAttachments.RESOURCE_HOLDER`（数值�
 
 整块留在内容侧：键位、选择状态、页面与格子类型、HUD 网格、`/saturn wheel` 指令全在 MiXianTu。Saturn 只保留通用的 HUD 框架（§3.6）、键位持有类 `SaturnKeyMappings.KeyMappingHolder` 与技能激活入口（§3.11）。
 
-### 3.8 指令（不含界面、不含网络）
+### 3.8 指令
 
 根节点 `/saturn`，服务端与客户端节点都挂在下面（Brigadier 同名合并）：
 
 | 节点 | 侧 | 作用 |
 |---|---|---|
+| `information query <target> [<group>]` / `gui <target> [<group>]` | 服务端 | 聊天查询或给执行者打开信息界面；两者均要求管理员权限（3 级） |
 | `profiler on` / `off` / `status [sources…]` | 服务端 | 性能分析开关与读数（管理员） |
 | `registries` | 服务端 | 数据包与代码注册表大小；有默认条目的代码表附带默认 ID |
 | `attachment status` | 服务端 | 两个 Saturn 附件：资源项数、能力来源数、冷却数 |
@@ -145,7 +146,7 @@ Saturn 只有两个实体附件：`SaturnAttachments.RESOURCE_HOLDER`（数值�
 | `resource set/add <targets> <id> <amount>` | 服务端 | 写数值（管理员），按 `min`/`max` 夹取 |
 | `hud` / `hud open` / `hud <element> reset` | 客户端 | HUD 框架诊断与编辑器 |
 
-**根别名与配置。** 每个服务端节点除了挂在 `/saturn` 下，还可以同时注册到根（`/profiler`、`/ability`、`/triggers`、`/resource`、`/registries`、`/attachment`），由 `config/saturn-common.toml` 的 `commands.<节点>` 控制，**默认 `true`**；根上已经有别的模组占了同一个字面量时跳过并记一行日志，不覆盖对方。文件由 NeoForge 的 `ModConfigSpec` 注册（`SaturnConfig.COMMON_SPEC` / `CLIENT_SPEC`），Saturn 不自带配置界面。
+**根别名与配置。** 每个服务端节点除了挂在 `/saturn` 下，还可以同时注册到根（`/information`、`/profiler`、`/ability`、`/triggers`、`/resource`、`/registries`、`/attachment`），由 `config/saturn-common.toml` 的 `commands.<节点>` 控制，**默认 `true`**；根上已经有别的模组占了同一个字面量时跳过并记一行日志，不覆盖对方。文件由 NeoForge 的 `ModConfigSpec` 注册（`SaturnConfig.COMMON_SPEC` / `CLIENT_SPEC`），Saturn 不自带配置界面。
 
 技能与触发器的节点都在：运行时已经搬进 Saturn（§3.11）。
 
@@ -195,7 +196,7 @@ Saturn 自带完整的技能与触发器运行时，内容侧只提供规则与�
 - `util/{CloseableResources,ClientRenderResources}`：可关闭资源的槽位（关卡卸载、停机时释放）；`ClientLevelAccess` 是客户端注册表的访问口。
 - `util/InventoryUtil`：精确堆叠的原子挪进/挪出；`util/TooltipText`：tooltip 的数值、正负号与分隔符（`tooltip.saturn.separator`）。
 - `data/DescribedEntry`：`值 + 可选 description` 的 codec 包装（`codec(valueCodec, key)`），任意 `T` 可用。
-- `util/{PlayerNames,ClientPlayerNames}`：按 UUID 解析名字——先问服务端已知的（在线列表、名字缓存），客户端再问当前连接；客户端要问服务端时走 `api/PlayerNameQuery`（Saturn 没有自己的网络包）。
+- `util/{PlayerNames,ClientPlayerNames}`：按 UUID 解析名字——先问服务端已知的（在线列表、名字缓存），客户端再问当前连接；客户端要问服务端时走 `api/PlayerNameQuery`（Saturn 不提供名字查询网络包）。
 - 战利品条目：`saturn:has_ability`（条件：这个实体持不持有某个技能）与 `saturn:grant_ability`（函数：授予，默认来源 `saturn:loot`），只读 `saturn:ability` 与能力附件。
 ---
 
@@ -249,14 +250,18 @@ public MyMod(IEventBus bus) {
 
 ## 6. 玩家视图与信息行
 
-`api.playerview` 提供只读视图、writer、展示 provider 和宿主查询契约。入口、定义和快照在 `data.information`，DTO 在 `data.information.model`，取值接口在 `data.information.getter`，表达式在 `data.information.expression`。`EntityValueGetter<T>` 的参数 MapCodec 以 `DeferredRegister` 注册到 `SaturnRegistries.ENTITY_VALUE_GETTER`；`valueCodec()` 单独负责结果载荷，`schemaVersion()` 默认 `1`。每个查询可实现 `capture(Entity)`、`readSaved(SavedPlayerViewContext)` 和只读快照投影 `fallback(PlayerView)`。
+`api.playerview` 提供只读视图、writer 和宿主查询契约。入口、定义和快照在 `data.information`，DTO 在 `data.information.model`，取值接口在 `data.information.getter`，表达式在 `data.information.expression`。`EntityValueGetter<T>` 的参数 MapCodec 以 `DeferredRegister` 注册到 `SaturnRegistries.ENTITY_VALUE_GETTER`；`valueCodec()` 单独负责结果载荷，`schemaVersion()` 默认 `1`。每个查询可实现 `capture(Entity)`、`readSaved(SavedPlayerViewContext)` 和只读快照投影 `fallback(PlayerView)`。
 
 `data.information.PlayerViews` 采集无必填参数类型的默认查询、调用方显式请求和当前世界启用行所需的查询与依赖，按完整参数去重、隔离故障。26 个内置类型分别位于 `data.information.getter.builtin`，包括按 ID 选择属性、资源、效果及计分板目标。Saturn 只解析传入数据，不读取玩家文件、不保存归档，也不自行同步玩家信息。旧无参字段的 ID/schema/载荷格式保持；参数结果另存 `queries`，未知封套和查询定义保留。存档解析的 `NOT_CAPTURED` 不创建封套，允许宿主补充。原 Field / Contributor / SavedReader API 已移除，详见 [Getter 注册与迁移](PLAYER-VIEWS.md#注册类型化扩展)。
 
-展示扩展优先通过 `saturn:information_row` 数据定义逐行声明，类型为 `InformationRow`；`InformationGroup.rows` 通过 `Either<Holder<InformationRow>, TagKey<InformationRow>>` 引用单行或标签，可在多个组复用同一行。求值结果为 `InformationRowResult`，组元数据为 `InfomationGroup`。原有 `PlayerInformation` Java provider 保留，数据定义可覆盖同 ID Java 行。`collect(view, group)` 按组取，`collectAll(view)` 全取，两种入口同时保留。`saturn:getter` 表达式内嵌带参数 getter，复合结果可选 `path`；例如按属性 ID 查询不依赖属性列表位置。使用 `InformationContext(language, registries)` 可以显式指定当前世界定义。
+展示扩展通过 `saturn:information_row` 数据定义逐行声明，类型为 `InformationRow`；`InformationGroup.rows` 通过 `Either<Holder<InformationRow>, TagKey<InformationRow>>` 引用单行或标签，可在多个组复用同一行。求值结果为扁平的 `InformationEntry`，直接保存 label/value/tooltip，使用 Holder 引用原始 Row 和 Group；分组查询返回 `Holder<InformationGroup>`，标题、顺序、importance 等不再复制为另一套模型。`PlayerInformation` 只查询原生 Row / Group 注册表，不持有独立的 Java 定义或注册器。`collect(view, group)` 按组取，`collectAll(view)` 全取，两种入口同时保留。`saturn:getter` 表达式内嵌带参数 getter，复合结果可选 `path`；例如按属性 ID 查询不依赖属性列表位置。使用 `InformationContext(language, registries)` 可以显式指定当前世界定义。
 
-`register(id, group, order, importance, provider)` 可显式指定 int 重要程度，越大越重要；原四参数重载默认 `0`。结果行通过 `importance()` 读取，`document.withMinimumImportance(minimum)` 保留不低于阈值的行，沿用原显示顺序。Codec 缺少该字段时默认 `0`。
+旧直接 Java 行/组注册重载、`PlayerInformationRegistry`、`PlayerInformationRowProvider`、无参代码组枚举 `groups()` 和结果单组访问器 `group()` 已全部移除。新行/组使用数据包注册表，自定义取值/计算向 getter / expression 固有注册表登记 MapCodec；枚举当前分组用 `groups(view[, context])`，包含注册表中的空组。全取、按组取、screen 及结果的 `groups()` 保留。没有注册表上下文时查询为空，不回退到代码或全局世界。
+
+行 JSON 的 `importance` 为 int，越大越重要，默认 `0`。结果行通过 `importance()` 从原定义读取，`document.withMinimumImportance(minimum)` 保留不低于阈值的行，沿用原显示顺序。
+
+`InformationRow` / `InformationGroup` 的 `CODEC` 为 Holder Codec，`DIRECT_CODEC` 为定义 Codec；`InformationEntry.CODEC` 和文档 Codec 需要当前 RegistryOps。展示结果直接通过 `entry.label()/value()/tooltip()` 使用，旧 Result/Content 嵌套已删除。
 
 完整签名、字段、NBT 输入、Codec、界面与验证范围见 [玩家视图与展示行](PLAYER-VIEWS.md)，JSON 定义和自定义 Type 见 [数据驱动信息行](INFORMATION-DATA.md)。
 
-诊断指令为 `/saturn information <target> [<group>]`，要求 gamemaster 权限，支持玩家名、UUID 或单实体选择器。省略 group 输出全部行，提供 group 则仅输出对应组；group 支持动态定义与 Java 注册组的 ID 补全。指令使用 `InformationText` 输出实际文档，仅回复执行者，返回逻辑行数。命令提示含中英文翻译键。
+信息指令为 `/information query <target> [<group>]` 和 `/information gui <target> [<group>]`，两者均要求 `Permissions.COMMANDS_ADMIN`（3 级），并保留 `/saturn information query/gui ...` 入口。支持玩家名、UUID 或单实体选择器；省略 group 全取，提供 group 按组筛选，支持当前 Group 注册表的 ID 补全。`query` 使用 `InformationText` 仅向执行者输出文字，控制台可用；`gui` 要求玩家执行，通过 `saturn:information_gui` 客户端载荷传输已经求值的 `InformationDocument` 与分组选择，在执行者客户端打开 `PlayerInformationScreen`。两者返回逻辑行数。GUI 不发送原始快照、不自动刷新；过大的文档提示按组查看。命令提示含中英文翻译键。

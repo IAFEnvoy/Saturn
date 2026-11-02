@@ -39,15 +39,19 @@ Capture a view from a supplied player, then collect all information or select a 
 ```java
 import com.iafenvoy.saturn.data.information.PlayerInformation;
 import com.iafenvoy.saturn.data.information.PlayerViews;
+import net.minecraft.resources.Identifier;
 
 var view = PlayerViews.parse(player);
 var all = PlayerInformation.collectAll(view);
-var basic = PlayerInformation.collect(view, PlayerInformation.BASIC);
+var basicGroup = PlayerInformation.groups(view).stream()
+        .filter(group -> group.id().equals(Identifier.parse("saturn:basic"))).findFirst().orElseThrow();
+var basic = PlayerInformation.collect(view, basicGroup);
 var compact = all.withMinimumImportance(60);
 ```
 
 Saturn parses the data supplied by the host mod. The host handles player-file access, archive storage, permissions,
-and player-data networking. Views distinguish missing information from known zero values and empty collections.
+and player-data networking. Saturn's own administrator command can send an evaluated document to its executor's screen.
+Views distinguish missing information from known zero values and empty collections.
 
 Each `EntityValueGetter<T>` owns a parameter `MapCodec`, a result `valueCodec`, a schema (default `1`), and optional
 `capture(Entity)` / `readSaved(SavedPlayerViewContext)` methods. Mods register parameter codecs through
@@ -58,7 +62,8 @@ each query's failures. Snapshots distinguish queries by their complete parameter
 
 Rows define their own content, order, and `importance` (default `0`; higher means more important). **Groups reference
 rows**, using `Either<Holder<InformationRow>, TagKey<InformationRow>>`. `InformationRow` is a definition;
-`InformationRowResult` is the evaluated display result. For example, a group at
+`InformationEntry` contains the evaluated label, value, and tooltip, with holders referencing the row and its groups.
+There is one `InformationGroup` model and one `InformationRow` definition; display results do not copy their metadata. For example, a group at
 `data/example/saturn/information_group/overview.json` can select one row and a tag:
 
 ```json
@@ -75,7 +80,10 @@ deduplicate references; collecting all rows also includes ungrouped rows. Row de
 
 The library includes **16 information rows**, **3 groups**, and their row tags. Packs can extend group contents through
 tags or override definitions. Expressions read registered getters through their own result codecs and compose presentation
-values; mods can register additional expression types with a `MapCodec`. Java row providers remain available.
+values; mods can register additional expression types with a `MapCodec`. All rows and groups come from the native
+datapack registries. The separate Java row/group registry and provider API have been removed. Use `groups(view)` for
+current group discovery, `collectAll` for every row, and `collect` for selected groups. Without registry context,
+these queries return empty results; no global world or code fallback is consulted.
 
 | Registry | Purpose |
 | --- | --- |
@@ -88,16 +96,23 @@ Definitions follow the native world-loading registry lifecycle; reopen the world
 them. See the [data-driven information guide](docs/INFORMATION-DATA.md) for JSON formats, expression types, registry
 contexts, and migration details.
 
-Operators can inspect the same text projection from a command:
+Administrators can inspect information in chat or in the built-in screen:
 
 ```mcfunction
-/saturn information @s
-/saturn information @s saturn:basic
+/information query @s
+/information query @s saturn:basic
+/information gui @s
+/information gui @s saturn:basic
 ```
 
 `target` accepts a player name, UUID, or single-entity selector. Omitting the group collects all rows; group IDs support
-completion. Results are sent only to the command source. The command requires gamemaster permission and returns the
-number of logical rows. Command headings and messages include English and Simplified Chinese translations.
+completion. Both branches require administrator permission (`COMMANDS_ADMIN`, level 3) and return the number of logical
+rows. `query` prints text only to the command source; `gui` requires a player executor and sends only the evaluated
+document and group selection to that player. The screen is a static view, with no automatic refresh. Command headings
+and messages include English and Simplified Chinese translations.
+
+Both branches are also available under `/saturn information`. The top-level `/information` alias is enabled by default
+and follows `commands.information` in `config/saturn-common.toml`; a top-level literal owned by another mod is skipped.
 
 ## Documentation
 

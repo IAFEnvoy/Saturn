@@ -2,9 +2,27 @@ package com.iafenvoy.saturn.view;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 import com.iafenvoy.saturn.api.playerview.*;
 import com.iafenvoy.saturn.data.information.*;
+import com.iafenvoy.saturn.data.information.expression.InformationEvaluation;
 import com.iafenvoy.saturn.data.information.getter.*;
+import com.iafenvoy.saturn.data.information.expression.builtin.ConstantExpression;
+import com.iafenvoy.saturn.data.information.expression.builtin.GetterExpression;
+import com.iafenvoy.saturn.registry.SaturnResourceKeys;
+import com.mojang.datafixers.util.Either;
+import com.mojang.serialization.Lifecycle;
+import com.mojang.serialization.Dynamic;
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.MappedRegistry;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.contents.TranslatableContents;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.tags.TagKey;
 import com.iafenvoy.saturn.data.information.getter.builtin.*;
 import com.mojang.serialization.MapCodec;
 import com.iafenvoy.saturn.registry.SaturnRegistries;
@@ -20,12 +38,13 @@ import net.minecraft.nbt.NbtOps;
 import net.minecraft.network.chat.Component;
 
 import java.util.*;
+import java.util.stream.Stream;
 
 /** Standalone codec and contract checks; no game, world, connection or player is created. */
 public final class PlayerViewVerification {
     private static int checks;
 
-    public static void main(String[] args) {
+    static void main(String[] args) {
         // Standalone fixtures populate native codec registries without bootstrapping the game.
         for (var entry : List.of(
                 Map.entry("abilities", EntityValueGetters.ABILITIES.codec()),
@@ -111,88 +130,110 @@ public final class PlayerViewVerification {
     }
 
     private static void groups() {
-        PlayerInformationRegistry registry = new PlayerInformationRegistry();
-        InfomationGroup cultivation = registry.registerGroup(id("cultivation"), Component.literal("Cultivation"), 10);
-        InfomationGroup basic = registry.registerGroup(id("basic"), Component.literal("Basic"), 0);
-        PlayerInformationRowProvider row = (view, context) -> Optional.of(new InformationRowContent(Component.literal("X"), new InformationValue.Number(3), Set.of()));
-        registry.register(id("realm"), cultivation, 0, row);
-        registry.register(id("food"), basic, 10, row);
-        registry.register(id("health"), basic, 0, row);
-        registry.register(id("hidden"), basic, 20, (view, context) -> Optional.empty());
+        MappedRegistry<InformationRow> rows = new MappedRegistry<>(SaturnResourceKeys.INFORMATION_ROW, Lifecycle.stable());
+        Registry.register(rows, id("realm"), numericRow(0, 0, true));
+        Registry.register(rows, id("food"), numericRow(10, 0, true));
+        Registry.register(rows, id("health"), numericRow(0, 0, true));
+        Registry.register(rows, id("hidden"), numericRow(20, 0, false));
+        Registry.register(rows, id("shared"), numericRow(40, 0, true));
+        Registry.register(rows, id("no_groups"), numericRow(0, 0, true));
+        rows.freeze();
+        MappedRegistry<InformationGroup> groups = new MappedRegistry<>(SaturnResourceKeys.INFORMATION_GROUP, Lifecycle.stable());
+        Holder<InformationGroup> cultivation = registerGroup(groups, rows, "cultivation", 10, "realm", "shared");
+        Holder<InformationGroup> basic = registerGroup(groups, rows, "basic", 0, "health", "food", "hidden", "shared", "shared");
+        Holder<InformationGroup> empty = registerGroup(groups, rows, "empty", 20);
+        groups.freeze();
+        InformationContext context = new InformationContext("en_us", HolderLookup.Provider.create(Stream.of(rows, groups)));
         PlayerViewSnapshot view = PlayerViewSnapshot.builder(meta("one"), NbtOps.INSTANCE).build();
-        InformationDocument all = registry.collectAll(view, InformationContext.DEFAULT);
-        check(all.rows().stream().map(InformationRowResult::id).toList().equals(List.of(id("health"), id("food"), id("realm"))), "all groups ordered");
-        check(registry.collect(view, InformationContext.DEFAULT, basic).rows().equals(all.rows(basic)), "by group equals all filtered");
-        check(registry.collect(view, InformationContext.DEFAULT, Set.of()).rows().isEmpty(), "empty selection means none");
-        check(all.groups().equals(List.of(basic, cultivation)), "group metadata retained");
-        InfomationGroup otherLanguage = new InfomationGroup(basic.id(), Component.literal("Different title"), 100);
-        check(registry.collect(view, InformationContext.DEFAULT, otherLanguage).rows().size() == 2, "group identity ignores title and order");
-        expectFailure(() -> registry.registerGroup(id("basic"), Component.empty(), 0), "duplicate group rejected");
-        expectFailure(() -> registry.register(id("health"), basic, 0, row), "duplicate row rejected");
-        expectFailure(() -> registry.register(id("unknown"), new InfomationGroup(id("unknown"), Component.empty(), 0), 0, row), "unknown group rejected");
-        registry.register(id("broken"), basic, 30, (v, c) -> { throw new IllegalStateException("Expected verification failure"); });
-        check(registry.collectAll(view, InformationContext.DEFAULT).rows().size() == 3, "row failure isolated");
+        InformationDocument all = PlayerInformation.collectAll(view, context);
+        check(all.rows().stream().map(InformationEntry::id).toList().equals(List.of(id("health"), id("food"), id("shared"), id("realm"), id("no_groups"))), "registry groups and ungrouped rows ordered");
+        check(PlayerInformation.collect(view, context, basic).rows().equals(all.rows(basic)), "by group equals all filtered");
+        check(PlayerInformation.collect(view, context, Set.of()).rows().isEmpty(), "empty selection means none");
+        check(all.groups().equals(List.of(basic, cultivation)), "document groups include only groups with visible rows");
+        check(PlayerInformation.groups(view, context).equals(List.of(basic, cultivation, empty)), "registry group query includes empty groups");
+        check(all.groups().getFirst() == basic, "collection reuses the registry group holder");
+        check(all.rows().getFirst().row() == rows.get(ResourceKey.create(SaturnResourceKeys.INFORMATION_ROW, id("health"))).orElseThrow(),
+                "collection reuses the registry row holder");
         InformationValue number = new InformationValue.Number(7);
         check(InformationValue.CODEC.parse(JsonOps.INSTANCE, InformationValue.CODEC.encodeStart(JsonOps.INSTANCE, number)
                 .getOrThrow()).getOrThrow().equals(number), "numeric display codec");
         check(PlayerInformation.collectAll(view).rows().isEmpty(), "detached view without registry does not borrow global world definitions");
-        registry.register(id("shared"), List.of(basic, cultivation, basic), 40, row);
-        check(registry.collect(view, InformationContext.DEFAULT, basic).rows().stream().anyMatch(r -> r.id().equals(id("shared")))
-                && registry.collect(view, InformationContext.DEFAULT, cultivation).rows().stream().anyMatch(r -> r.id().equals(id("shared"))), "shared row belongs to both groups");
-        check(registry.collect(view, InformationContext.DEFAULT, Set.of(basic, cultivation)).rows().stream().filter(r -> r.id().equals(id("shared"))).count() == 1,
+        check(PlayerInformation.groups(view).isEmpty(), "detached view has no synthetic builtin groups");
+        check(PlayerInformation.collect(view, context, cultivation).rows().stream().anyMatch(r -> r.id().equals(id("shared"))), "shared row belongs to both groups");
+        check(PlayerInformation.collect(view, context, Set.of(basic, cultivation)).rows().stream().filter(r -> r.id().equals(id("shared"))).count() == 1,
                 "union and all collect shared row once");
-        check(registry.collectAll(view, InformationContext.DEFAULT).rows().stream().filter(r -> r.id().equals(id("shared"))).findFirst().orElseThrow().groups().size() == 2,
+        check(all.rows().stream().filter(r -> r.id().equals(id("shared"))).findFirst().orElseThrow().groups().size() == 2,
                 "duplicate group membership removed");
-        registry.register(id("no_groups"), 0, 0, row);
-        check(registry.collectAll(view, InformationContext.DEFAULT).rows().stream().anyMatch(r -> r.id().equals(id("no_groups")) && r.groups().isEmpty()), "ungrouped row included by all");
-        check(registry.collect(view, InformationContext.DEFAULT, Set.of(basic, cultivation)).rows().stream().noneMatch(r -> r.id().equals(id("no_groups"))), "ungrouped row excluded from group union");
-        Component title = Component.literal("Original");
-        InfomationGroup detached = new InfomationGroup(id("title"), title, 0);
-        ((net.minecraft.network.chat.MutableComponent) title).append("changed");
+        check(all.rows().stream().anyMatch(r -> r.id().equals(id("no_groups")) && r.groups().isEmpty()), "ungrouped row included by all");
+        check(PlayerInformation.collect(view, context, Set.of(basic, cultivation)).rows().stream().noneMatch(r -> r.id().equals(id("no_groups"))), "ungrouped row excluded from group union");
+        check(PlayerInformation.collect(view, context, empty).rows().isEmpty(), "empty registry group collects no rows");
+        check(PlayerInformation.collect(view, context, Holder.direct(new InformationGroup(Component.empty(), 0, List.of()))).rows().isEmpty(), "unregistered group cannot supply rows");
+        MutableComponent title = Component.literal("Original");
+        InformationGroup detached = new InformationGroup(title, 0, List.of());
+        title.append("changed");
         check(detached.title().getString().equals("Original"), "group title detached");
-        var sibling = Component.literal("child");
-        InfomationGroup nested = new InfomationGroup(id("nested"), Component.literal("root").append(sibling), 0);
+        MutableComponent sibling = Component.literal("child");
+        InformationGroup nested = new InformationGroup(Component.literal("root").append(sibling), 0, List.of());
         sibling.append("changed");
         check(nested.title().getString().equals("rootchild"), "nested sibling detached on input");
-        ((net.minecraft.network.chat.MutableComponent) nested.title().getSiblings().getFirst()).append("changed");
+        ((MutableComponent) nested.title().getSiblings().getFirst()).append("changed");
         check(nested.title().getString().equals("rootchild"), "nested sibling detached on output");
-        var argument = Component.literal("arg");
-        var translated = new InformationValue.Text(Component.translatableWithFallback("verification.missing_key", "%s", argument));
+        MutableComponent argument = Component.literal("arg");
+        InformationValue.Text translated = new InformationValue.Text(Component.translatableWithFallback("verification.missing_key", "%s", argument));
         argument.append("changed");
         check(translated.text().getString().equals("arg"), "translation arguments detached on input");
-        var contents = (net.minecraft.network.chat.contents.TranslatableContents) translated.text().getContents();
-        ((net.minecraft.network.chat.MutableComponent) contents.getArgs()[0]).append("changed");
+        TranslatableContents contents = (TranslatableContents) translated.text().getContents();
+        ((MutableComponent) contents.getArgs()[0]).append("changed");
         check(translated.text().getString().equals("arg"), "translation arguments detached on output");
-        check(InformationValue.CODEC.parse(JsonOps.INSTANCE, com.google.gson.JsonParser.parseString("{\"type\":\"unknown\"}")).isError(), "unknown display kind rejected as codec error");
+        check(InformationValue.CODEC.parse(JsonOps.INSTANCE, JsonParser.parseString("{\"type\":\"unknown\"}")).isError(), "unknown display kind rejected as codec error");
     }
 
     private static void importance() {
-        PlayerInformationRegistry registry = new PlayerInformationRegistry();
-        InfomationGroup group = registry.registerGroup(id("importance"), Component.literal("Importance"), 0);
-        PlayerInformationRowProvider provider = (view, context) -> Optional.of(new InformationRowContent(
-                Component.literal("Value"), new InformationValue.Number(1), Set.of(id("private_field"))));
-        registry.register(id("ordinary"), group, 0, provider);
-        registry.register(id("essential"), group, 10, 100, provider);
-        registry.register(id("detail"), group, 20, -10, provider);
-        registry.register(id("important"), group, 30, 50, provider);
-        PlayerViewSnapshot view = PlayerViewSnapshot.builder(meta("importance"), NbtOps.INSTANCE).build();
-        InformationDocument all = registry.collectAll(view, InformationContext.DEFAULT);
-        check(all.rows().stream().map(InformationRowResult::importance).toList().equals(List.of(0, 100, -10, 50)),
-                "importance defaults to zero and does not replace display order");
-        check(registry.collect(view, InformationContext.DEFAULT, group).rows().equals(all.rows()), "importance retained by group collection");
-        check(all.withMinimumImportance(50).rows().stream().map(InformationRowResult::id).toList().equals(List.of(id("essential"), id("important"))),
+        MappedRegistry<InformationRow> rows = new MappedRegistry<>(SaturnResourceKeys.INFORMATION_ROW, Lifecycle.stable());
+        int[] importance = {0, 100, -10, 50};
+        String[] names = {"ordinary", "essential", "detail", "important"};
+        for (int i = 0; i < names.length; i++) {
+            Registry.register(rows, id(names[i]), new InformationRow(i * 10, importance[i], true, Component.literal("Value"), Optional.empty(),
+                    new GetterExpression(EntityValueGetters.HEALTH, List.of()), Optional.empty(), Optional.empty(),
+                    InformationRow.Tone.NORMAL, Optional.empty(), InformationRow.MissingPolicy.SHOW));
+        }
+        rows.freeze();
+        MappedRegistry<InformationGroup> groups = new MappedRegistry<>(SaturnResourceKeys.INFORMATION_GROUP, Lifecycle.stable());
+        Holder<InformationGroup> group = registerGroup(groups, rows, "importance", 0, names);
+        groups.freeze();
+        InformationContext context = new InformationContext("en_us", HolderLookup.Provider.create(Stream.of(rows, groups)));
+        PlayerViewSnapshot.Builder builder = PlayerViewSnapshot.builder(meta("importance"), NbtOps.INSTANCE);
+        builder.put(EntityValueGetters.HEALTH, 1.0);
+        PlayerViewSnapshot view = builder.build();
+        InformationDocument all = PlayerInformation.collectAll(view, context);
+        check(all.rows().stream().map(InformationEntry::importance).toList().equals(List.of(0, 100, -10, 50)),
+                "registry importance does not replace display order");
+        check(PlayerInformation.collect(view, context, group).rows().equals(all.rows()), "importance retained by group collection");
+        check(all.withMinimumImportance(50).rows().stream().map(InformationEntry::id).toList().equals(List.of(id("essential"), id("important"))),
                 "importance threshold is inclusive and preserves display order");
         check(all.withMinimumImportance(Integer.MIN_VALUE).rows().equals(all.rows()), "minimum threshold keeps every int importance");
         check(all.withMinimumImportance(101).rows().isEmpty(), "threshold can hide every row");
         check(all.rows().size() == 4, "importance filtering leaves source document intact");
-        check(all.withMinimumImportance(50).filter(field -> !field.equals(id("private_field"))).rows().isEmpty(),
+        check(all.withMinimumImportance(50).filter(field -> !field.equals(EntityValueGetters.HEALTH.type())).rows().isEmpty(),
                 "importance filtering preserves permission provenance");
-        InformationRowResult explicit = all.rows().get(1);
-        check(new InformationRowResult(explicit.id(), group, explicit.order(), explicit.content()).importance() == 0,
-                "legacy constructor defaults importance to zero");
-        PlayerInformation.register(id("importance_facade"), PlayerInformation.BASIC, 1000, 75, provider);
-        check(PlayerInformation.collectAll(view).rows().stream().filter(row -> row.id().equals(id("importance_facade")))
-                .findFirst().orElseThrow().importance() == 75, "facade carries explicit importance");
+        InformationEntry explicit = all.rows().get(1);
+        check(explicit.importance() == explicit.row().value().importance(), "importance comes directly from the row definition");
+
+    }
+
+    private static InformationRow numericRow(int order, int importance, boolean enabled) {
+        return new InformationRow(order, importance, enabled, Component.literal("Value"), Optional.empty(),
+                new ConstantExpression(new Dynamic<>(JsonOps.INSTANCE, new JsonPrimitive(3))), Optional.empty(), Optional.empty(),
+                InformationRow.Tone.NORMAL, Optional.empty(), InformationRow.MissingPolicy.SHOW);
+    }
+
+    private static Holder<InformationGroup> registerGroup(MappedRegistry<InformationGroup> groups, MappedRegistry<InformationRow> rows,
+                                                 String name, int order, String... members) {
+        List<Either<Holder<InformationRow>, TagKey<InformationRow>>> references = Arrays.stream(members)
+                .map(member -> Either.<Holder<InformationRow>, TagKey<InformationRow>>left(rows.get(ResourceKey.create(SaturnResourceKeys.INFORMATION_ROW, id(member))).orElseThrow())).toList();
+        InformationGroup definition = new InformationGroup(Component.literal(name), order, references);
+        Registry.register(groups, id(name), definition);
+        return groups.get(ResourceKey.create(SaturnResourceKeys.INFORMATION_GROUP, id(name))).orElseThrow();
     }
 
     private static void suppliedData() {
@@ -211,7 +252,7 @@ public final class PlayerViewVerification {
         check(view.read(EntityValueGetters.INVENTORY).missingReason().orElseThrow() == MissingReason.NOT_CAPTURED, "absent inventory is not empty");
         check(!view.getterIds().contains(EntityValueGetters.PROFILE.type()) && !view.getterIds().contains(EntityValueGetters.TEAM.type()),
                 "uncaptured saved fields remain absent so host can supplement them");
-        var host = view.toBuilder();
+        PlayerViewSnapshot.Builder host = view.toBuilder();
         if (!host.contains(EntityValueGetters.TEAM)) host.put(EntityValueGetters.TEAM, "host-team", ValueOrigin.SAVED);
         check(host.build().read(EntityValueGetters.TEAM).value().orElseThrow().equals("host-team"), "host supplementation after saved parsing still works");
         PlayerViewSnapshot.Builder recorded = PlayerViewSnapshot.builder(context.meta(), NbtOps.INSTANCE);
@@ -222,7 +263,7 @@ public final class PlayerViewVerification {
         CompoundTag corrupt = new CompoundTag();
         corrupt.putString("foodLevel", "bad");
         corrupt.putFloat("Health", 6);
-        corrupt.put("Inventory", new net.minecraft.nbt.ListTag());
+        corrupt.put("Inventory", new ListTag());
         PlayerViewSnapshot partial = PlayerViews.parse(new SavedPlayerViewContext(meta("partial"), RegistryAccess.EMPTY, corrupt,
                 Optional.of("{\"stats\":{}}"), Optional.empty()));
         check(partial.read(EntityValueGetters.FOOD).missingReason().orElseThrow() == MissingReason.INVALID, "bad saved field is invalid");
@@ -244,14 +285,14 @@ public final class PlayerViewVerification {
 
     private static void queries() {
         Identifier health = Identifier.parse("minecraft:max_health"), speed = Identifier.parse("minecraft:movement_speed");
-        var baseHealth = new AttributeGetter(health, AttributeGetter.Value.BASE);
-        var effectiveHealth = new AttributeGetter(health, AttributeGetter.Value.EFFECTIVE);
-        var baseSpeed = new AttributeGetter(speed, AttributeGetter.Value.BASE);
-        var builder = PlayerViewSnapshot.builder(meta("queries"), NbtOps.INSTANCE);
+        AttributeGetter baseHealth = new AttributeGetter(health, AttributeGetter.Value.BASE);
+        AttributeGetter effectiveHealth = new AttributeGetter(health, AttributeGetter.Value.EFFECTIVE);
+        AttributeGetter baseSpeed = new AttributeGetter(speed, AttributeGetter.Value.BASE);
+        PlayerViewSnapshot.Builder builder = PlayerViewSnapshot.builder(meta("queries"), NbtOps.INSTANCE);
         builder.put(EntityValueGetters.ATTRIBUTES, List.of(
                 new PlayerViewData.Attribute(speed, 0.1, Optional.of(0.12)),
                 new PlayerViewData.Attribute(health, 20, Optional.of(24.0))), ValueOrigin.SAVED);
-        var view = builder.build();
+        PlayerViewSnapshot view = builder.build();
         check(view.read(baseHealth).value().orElseThrow() == 20 && view.read(effectiveHealth).value().orElseThrow() == 24,
                 "attribute getter selects id and enum value without relying on list order");
         check(view.read(baseSpeed).value().orElseThrow() == 0.1 && view.read(baseSpeed).origin() == ValueOrigin.SAVED,
@@ -261,43 +302,43 @@ public final class PlayerViewVerification {
         builder.put(baseHealth, 30.0, ValueOrigin.CAPTURED);
         builder.put(effectiveHealth, 35.0, ValueOrigin.CAPTURED);
         builder.put(baseSpeed, 0.2, ValueOrigin.CAPTURED);
-        var explicit = builder.build();
+        PlayerViewSnapshot explicit = builder.build();
         check(explicit.read(baseHealth).value().orElseThrow() == 30 && explicit.read(effectiveHealth).value().orElseThrow() == 35
                 && explicit.read(baseSpeed).value().orElseThrow() == 0.2, "full getter parameters identify independent captured entries");
-        var decoded = PlayerViewSnapshot.CODEC.parse(JsonOps.INSTANCE, PlayerViewSnapshot.CODEC.encodeStart(JsonOps.INSTANCE, explicit).getOrThrow()).getOrThrow();
+        PlayerViewSnapshot decoded = PlayerViewSnapshot.CODEC.parse(JsonOps.INSTANCE, PlayerViewSnapshot.CODEC.encodeStart(JsonOps.INSTANCE, explicit).getOrThrow()).getOrThrow();
         check(decoded.read(effectiveHealth).value().orElseThrow() == 35, "parameterized query JSON roundtrip");
-        var nbt = PlayerViewSnapshot.CODEC.encodeStart(NbtOps.INSTANCE, explicit).getOrThrow();
+        Tag nbt = PlayerViewSnapshot.CODEC.encodeStart(NbtOps.INSTANCE, explicit).getOrThrow();
         check(PlayerViewSnapshot.CODEC.parse(NbtOps.INSTANCE, nbt).getOrThrow().read(baseSpeed).value().orElseThrow() == 0.2,
                 "parameterized query NBT roundtrip");
-        var evaluation = new com.iafenvoy.saturn.data.information.expression.InformationEvaluation(explicit, InformationContext.DEFAULT);
+        InformationEvaluation evaluation = new InformationEvaluation(explicit, InformationContext.DEFAULT);
         check(evaluation.getter(baseHealth, List.of()).number() == 30 && evaluation.getter(baseSpeed, List.of()).number() == 0.2,
                 "evaluation cache includes every getter argument");
         builder.missing(effectiveHealth, MissingReason.REDACTED);
         check(builder.build().read(effectiveHealth).missingReason().orElseThrow() == MissingReason.REDACTED, "explicit missing query blocks broader fallback");
-        var filtered = explicit.filter(id -> !id.equals(Identifier.parse("saturn:attributes")) && !id.equals(Identifier.parse("saturn:attribute")));
+        PlayerViewSnapshot filtered = explicit.filter(id -> !id.equals(Identifier.parse("saturn:attributes")) && !id.equals(Identifier.parse("saturn:attribute")));
         check(!filtered.read(baseHealth).isKnown() && !filtered.getterIds().contains(Identifier.parse("saturn:attribute")), "wire filtering removes parameterized queries and dependencies");
         check(EntityValueGetters.sources(baseHealth).containsAll(Set.of(Identifier.parse("saturn:attribute"), Identifier.parse("saturn:attributes"))),
                 "query provenance includes broader source facts");
-        var json = PlayerViewSnapshot.CODEC.encodeStart(JsonOps.INSTANCE, explicit).getOrThrow().getAsJsonObject();
-        var unknown = com.google.gson.JsonParser.parseString("""
+        JsonObject json = PlayerViewSnapshot.CODEC.encodeStart(JsonOps.INSTANCE, explicit).getOrThrow().getAsJsonObject();
+        JsonElement unknown = JsonParser.parseString("""
                 {"getter":{"type":"absent:query","argument":"kept"},"data":{"schema":9,"state":"custom","payload":[1,2]}}
                 """);
         json.getAsJsonArray("queries").add(unknown);
-        var roundtrip = PlayerViewSnapshot.CODEC.encodeStart(JsonOps.INSTANCE, PlayerViewSnapshot.CODEC.parse(JsonOps.INSTANCE, json).getOrThrow()).getOrThrow();
+        JsonElement roundtrip = PlayerViewSnapshot.CODEC.encodeStart(JsonOps.INSTANCE, PlayerViewSnapshot.CODEC.parse(JsonOps.INSTANCE, json).getOrThrow()).getOrThrow();
         check(roundtrip.getAsJsonObject().getAsJsonArray("queries").contains(unknown), "uninstalled parameter getter definition and payload survive roundtrip");
-        var key = EntityValueKey.of(baseHealth, JsonOps.INSTANCE);
+        EntityValueKey key = EntityValueKey.of(baseHealth, JsonOps.INSTANCE);
         key.definition().getAsJsonObject().addProperty("attribute", "changed");
         check(key.equals(EntityValueKey.of(baseHealth, JsonOps.INSTANCE)), "query key definition is detached");
-        var resource = new ResourceGetter(id("mana"), ResourceGetter.Value.CURRENT);
-        var resources = PlayerViewSnapshot.builder(meta("resources_query"), NbtOps.INSTANCE);
+        ResourceGetter resource = new ResourceGetter(id("mana"), ResourceGetter.Value.CURRENT);
+        PlayerViewSnapshot.Builder resources = PlayerViewSnapshot.builder(meta("resources_query"), NbtOps.INSTANCE);
         resources.put(EntityValueGetters.RESOURCES, List.of(new PlayerViewData.Resource(id("mana"), 12, Optional.empty(), Optional.empty(), 3)));
         check(resources.build().read(resource).value().orElseThrow() == 12 && !resources.build().read(new ResourceGetter(id("mana"), ResourceGetter.Value.MAXIMUM)).isKnown(),
                 "resource query preserves value and unknown historical bounds");
-        check(AttributeGetter.Value.CODEC.parse(JsonOps.INSTANCE, new com.google.gson.JsonPrimitive("wrong")).isError(), "unknown enum option is a codec error");
+        check(AttributeGetter.Value.CODEC.parse(JsonOps.INSTANCE, new JsonPrimitive("wrong")).isError(), "unknown enum option is a codec error");
     }
 
     private static void contracts() {
-        check(EntityValueGetter.CODEC.parse(JsonOps.INSTANCE, com.google.gson.JsonParser.parseString("{\"type\":\"absent:getter\"}")).isError(), "unknown getter type has no default fallback");
+        check(EntityValueGetter.CODEC.parse(JsonOps.INSTANCE, JsonParser.parseString("{\"type\":\"absent:getter\"}")).isError(), "unknown getter type has no default fallback");
         EntityValueGetter<Integer> custom = register("owned", Codec.INT, context -> ViewValue.known(7, ValueOrigin.SAVED));
         check(SaturnRegistries.ENTITY_VALUE_GETTER.getValue(custom.type()) == custom.codec() && EntityValueGetters.defaults(JsonOps.INSTANCE).contains(custom),
                 "native field registration is used by lookups and enumeration");
@@ -336,7 +377,10 @@ public final class PlayerViewVerification {
         expectFailure(() -> PlayerViewSnapshot.builder(meta("invalid"), NbtOps.INSTANCE).put(detached, 1), "unregistered field cannot be written");
         check(detached.capture(null).missingReason().orElseThrow() == MissingReason.UNSUPPORTED, "default live capture is unsupported");
         EntityValueGetter<Integer> defaults = new EntityValueGetter<>() {
+            @Override
             public MapCodec<? extends EntityValueGetter<Integer>> codec() { return MapCodec.unit(this); }
+            @Override
+            @Override
             public Codec<Integer> valueCodec() { return Codec.INT; }
         };
         check(defaults.readSaved(context).missingReason().orElseThrow() == MissingReason.NOT_CAPTURED, "saved reader is optional");
@@ -359,8 +403,13 @@ public final class PlayerViewVerification {
             this.parser = parser;
         }
 
+        @Override
         public MapCodec<FixtureGetter<T>> codec() { return this.codec; }
+        @Override
+        @Override
         public Codec<T> valueCodec() { return this.payload; }
+        @Override
+        @Override
         public ViewValue<T> readSaved(SavedPlayerViewContext context) { return this.parser.apply(context); }
     }
 
@@ -369,8 +418,8 @@ public final class PlayerViewVerification {
                 PlayerViewMeta.SourceKind.ARCHIVE, Optional.of(100L), Optional.of(20L), 200L);
     }
 
-    private static net.minecraft.resources.Identifier id(String path) {
-        return net.minecraft.resources.Identifier.fromNamespaceAndPath("verification", path);
+    private static Identifier id(String path) {
+        return Identifier.fromNamespaceAndPath("verification", path);
     }
 
     private static void check(boolean condition, String name) {

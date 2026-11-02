@@ -1,11 +1,14 @@
 package com.iafenvoy.saturn.gametest;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 import com.iafenvoy.saturn.Saturn;
-import com.iafenvoy.saturn.data.information.*;
+import com.iafenvoy.saturn.data.information.InformationGroup;
+import com.iafenvoy.saturn.data.information.InformationRow;
+import com.iafenvoy.saturn.data.information.PlayerInformation;
+import com.iafenvoy.saturn.data.information.PlayerViewSnapshot;
 import com.iafenvoy.saturn.data.information.expression.ExpressionValue;
 import com.iafenvoy.saturn.data.information.expression.InformationEvaluation;
 import com.iafenvoy.saturn.data.information.expression.InformationExpression;
@@ -53,7 +56,7 @@ public final class InformationTests {
         EntityValueGetterTests.register(bus);
         Map<String, Consumer<GameTestHelper>> tests = Map.of(
                 "builtins", InformationTests::builtins, "expressions", InformationTests::expressions,
-                "overrides", InformationTests::overrides, "document_codec", InformationTests::documentCodec,
+                "contexts", InformationTests::contexts, "document_codec", InformationTests::documentCodec,
                 "group_selections", InformationTests::groupSelections,
                 "field_registry", EntityValueGetterTests::registry,
                 "live_fields", EntityValueGetterTests::live,
@@ -101,19 +104,19 @@ public final class InformationTests {
         PlayerViewSnapshot view = builder.build();
         InformationDocument document = PlayerInformation.collectAll(view);
         helper.assertValueEqual(document.rows().size(), 16, "all 16 definitions evaluated");
-        for (InformationRowResult row : document.rows())
-            helper.assertTrue(!(row.content().value() instanceof InformationValue.Missing), "builtin must evaluate: " + row.id());
-        helper.assertValueEqual(((InformationValue.Meter) row(document, "health").content().value()).value(), 7.0, "meter reads multiple fields");
-        helper.assertTrue(row(document, "health").content().sourceFields().containsAll(Set.of(id("health"), id("max_health"))), "fallback dependencies retained");
-        helper.assertValueEqual(((InformationValue.Text) row(document, "name").content().value()).text().getStyle().getColor().getValue(), 0x123456, "component style retained");
-        helper.assertValueEqual(((InformationValue.Table) row(document, "resources").content().value()).rowIds(), List.of("saturn:resource"), "table row ids come from local scope");
-        helper.assertValueEqual(((InformationValue.Items) row(document, "inventory").content().value()).items().get("0").count(), 2, "item codec keeps structured data");
+        for (InformationEntry row : document.rows())
+            helper.assertTrue(!(row.value() instanceof InformationValue.Missing), "builtin must evaluate: " + row.id());
+        helper.assertValueEqual(((InformationValue.Meter) row(document, "health").value()).value(), 7.0, "meter reads multiple fields");
+        helper.assertTrue(row(document, "health").sourceFields().containsAll(Set.of(id("health"), id("max_health"))), "fallback dependencies retained");
+        helper.assertValueEqual(((InformationValue.Text) row(document, "name").value()).text().getStyle().getColor().getValue(), 0x123456, "component style retained");
+        helper.assertValueEqual(((InformationValue.Table) row(document, "resources").value()).rowIds(), List.of("saturn:resource"), "table row ids come from local scope");
+        helper.assertValueEqual(((InformationValue.Items) row(document, "inventory").value()).items().get("0").count(), 2, "item codec keeps structured data");
         helper.assertValueEqual(row(document, "game_mode").importance(), 40, "game mode importance");
         helper.assertValueEqual(row(document, "abilities").importance(), 70, "ability importance");
         helper.assertValueEqual(row(document, "resources").importance(), 30, "resource importance");
         builder.missing(EntityValueGetters.MAX_HEALTH, MissingReason.NOT_CAPTURED);
-        helper.assertTrue(row(PlayerInformation.collectAll(builder.build()), "health").content().value() instanceof InformationValue.Number, "missing max health falls back to number");
-        helper.assertValueEqual(PlayerInformation.collect(view, PlayerInformation.BASIC).rows(), document.rows(PlayerInformation.BASIC), "group collection retains order");
+        helper.assertTrue(row(PlayerInformation.collectAll(builder.build()), "health").value() instanceof InformationValue.Number, "missing max health falls back to number");
+        helper.assertValueEqual(PlayerInformation.collect(view, group(helper, "basic")).rows(), document.rows(group(helper, "basic")), "group collection retains order");
         helper.succeed();
     }
 
@@ -172,26 +175,26 @@ public final class InformationTests {
         InformationRow hidden = definition(helper, """
                 {"label":"Missing","missing":"hide","value":{"type":"saturn:getter","getter":{"type":"saturn:max_health"}}}
                 """);
-        helper.assertTrue(hidden.collect(evaluation).isEmpty(), "row missing policy hides unknown data");
+        helper.assertTrue(InformationEntry.collect(Holder.direct(hidden), Set.of(), evaluation).isEmpty(), "row missing policy hides unknown data");
         InformationRow provenance = definition(helper, """
                 {"label":"X","value":{"type":"saturn:if","condition":true,"then":0,
                  "else":{"type":"saturn:getter","getter":{"type":"saturn:statistics"}}}}
                 """);
         helper.assertTrue(provenance.sourceFields().contains(Identifier.parse("saturn:statistics")), "unused branch dependencies remain declared");
-        InformationRowContent captions = definition(helper, """
+        InformationEntry captions = InformationEntry.collect(Holder.direct(definition(helper, """
                 {"label":"Fallback","value":0,
                  "label_expression":{"type":"saturn:getter","getter":{"type":"saturn:team"}},"tooltip_expression":"Available tooltip"}
-                """).collect(evaluation).orElseThrow();
+                """)), Set.of(), evaluation).orElseThrow();
         helper.assertValueEqual(captions.label().getString(), "Fallback", "missing label preserves static fallback");
         helper.assertValueEqual(captions.tooltip().orElseThrow().getString(), "Available tooltip", "tooltip independent of missing label");
         helper.succeed();
     }
 
     private static InformationRow definition(GameTestHelper helper, String json) {
-        return InformationRow.CODEC.parse(helper.getLevel().registryAccess().createSerializationContext(JsonOps.INSTANCE), JsonParser.parseString(json)).getOrThrow();
+        return InformationRow.DIRECT_CODEC.parse(helper.getLevel().registryAccess().createSerializationContext(JsonOps.INSTANCE), JsonParser.parseString(json)).getOrThrow();
     }
 
-    private static void overrides(GameTestHelper helper) {
+    private static void contexts(GameTestHelper helper) {
         MappedRegistry<InformationRow> rows = new MappedRegistry<>(SaturnResourceKeys.INFORMATION_ROW, Lifecycle.stable());
         Registry.register(rows, id("shared"), definition(helper, """
                 {"importance":90,"label":"Shared","value":{"type":"saturn:getter","getter":{"type":"saturn:health"}},
@@ -201,43 +204,49 @@ public final class InformationTests {
         Registry.register(rows, id("disabled"), definition(helper, """
                 {"enabled":false,"label":"Disabled","value":0}
                 """));
+        Registry.register(rows, id("late_shared"), definition(helper, """
+                {"order":100,"label":"Late","value":1}
+                """));
+        Registry.register(rows, id("early_single"), definition(helper, """
+                {"label":"Early","value":1}
+                """));
         rows.freeze();
+        Holder.Reference<InformationRow> late = rows.get(ResourceKey.create(SaturnResourceKeys.INFORMATION_ROW, id("late_shared"))).orElseThrow();
+        Holder.Reference<InformationRow> early = rows.get(ResourceKey.create(SaturnResourceKeys.INFORMATION_ROW, id("early_single"))).orElseThrow();
         Holder.Reference<InformationRow> shared = rows.get(ResourceKey.create(SaturnResourceKeys.INFORMATION_ROW, id("shared"))).orElseThrow();
         Holder.Reference<InformationRow> disabled = rows.get(ResourceKey.create(SaturnResourceKeys.INFORMATION_ROW, id("disabled"))).orElseThrow();
         MappedRegistry<InformationGroup> groups = new MappedRegistry<>(SaturnResourceKeys.INFORMATION_GROUP, Lifecycle.stable());
         Registry.register(groups, id("basic"), new InformationGroup(Component.literal("Changed"), 0, List.of(Either.left(shared), Either.left(disabled))));
         Registry.register(groups, id("extra"), new InformationGroup(Component.literal("Extra"), 10, List.of(Either.left(shared))));
+        Registry.register(groups, id("earlier"), new InformationGroup(Component.literal("Earlier"), -10, List.of(Either.left(late))));
+        Registry.register(groups, id("later"), new InformationGroup(Component.literal("Later"), 20, List.of(Either.left(late), Either.left(early))));
         groups.freeze();
         HolderLookup.Provider provider = HolderLookup.Provider.create(Stream.of(groups, rows));
         InformationContext context = new InformationContext("en_us", provider);
-        PlayerInformationRegistry registry = new PlayerInformationRegistry();
-        InfomationGroup basic = registry.registerGroup(id("basic"), Component.literal("Original"), 100);
-        registry.register(id("shared"), basic, 0, (v, c) -> Optional.of(new InformationRowContent(Component.literal("Code"), new InformationValue.Number(-1), Set.of())));
-        registry.register(id("disabled"), basic, 0, (v, c) -> Optional.of(new InformationRowContent(Component.literal("Code"), new InformationValue.Number(-1), Set.of())));
         PlayerViewSnapshot.Builder builder = builder(helper);
         builder.put(EntityValueGetters.HEALTH, 8.0);
         builder.put(EntityValueGetters.MAX_HEALTH, 20.0);
         builder.put(EntityValueGetters.AIR, 100);
         PlayerViewSnapshot view = builder.build();
-        InformationDocument all = registry.collectAll(view, context);
-        helper.assertValueEqual(all.rows().size(), 1, "data overrides code and disabled suppresses row");
-        helper.assertValueEqual(((InformationValue.Number) all.rows().getFirst().content().value()).value(), 8.0, "data provider replaces code provider");
-        helper.assertValueEqual(all.groups().size(), 2, "multi group metadata");
-        helper.assertValueEqual(all.rows().getFirst().groups().getFirst().title().getString(), "Changed", "data overrides code group metadata");
-        helper.assertValueEqual(registry.collect(view, context, Set.copyOf(all.groups())).rows().size(), 1, "union deduplicated");
-        helper.assertTrue(all.filter(id -> !id.equals(id("max_health"))).rows().isEmpty(), "visibility dependencies filtered");
-        helper.assertTrue(all.filter(id -> !id.equals(id("air"))).rows().isEmpty(), "tooltip dependencies filtered");
-        helper.assertTrue(registry.collectAll(builder(helper).build(), context).rows().isEmpty(), "unknown visibility hides row");
-        helper.assertValueEqual(registry.collectAll(view, new InformationContext("en_us", RegistryAccess.EMPTY)).rows().size(), 2, "world contexts do not leak overrides");
+        InformationDocument all = PlayerInformation.collectAll(view, context);
+        helper.assertValueEqual(all.rows().size(), 3, "only enabled registry rows are evaluated");
+        helper.assertValueEqual(((InformationValue.Number) row(all, "shared").value()).value(), 8.0, "registry expression reads supplied view");
+        helper.assertValueEqual(all.groups().size(), 4, "multi group metadata comes from registry");
+        helper.assertValueEqual(PlayerInformation.collect(view, context, Set.copyOf(all.groups())).rows().size(), 3, "union deduplicated");
+        helper.assertTrue(all.filter(id -> !id.equals(id("max_health"))).rows().stream().noneMatch(row -> row.id().equals(id("shared"))), "visibility dependencies filtered");
+        helper.assertTrue(all.filter(id -> !id.equals(id("air"))).rows().stream().noneMatch(row -> row.id().equals(id("shared"))), "tooltip dependencies filtered");
+        helper.assertValueEqual(PlayerInformation.collectAll(builder(helper).build(), context).rows().size(), 2, "unknown visibility hides row");
+        InformationContext empty = new InformationContext("en_us", RegistryAccess.EMPTY);
+        helper.assertTrue(PlayerInformation.collectAll(view, empty).rows().isEmpty(), "explicit empty context does not borrow view registries");
+        helper.assertTrue(PlayerInformation.groups(view, empty).isEmpty(), "no code group defaults without registries");
+        helper.assertValueEqual(PlayerInformation.collectAll(view).rows().size(), 16, "view retains its original world definitions");
+        helper.assertValueEqual(PlayerInformation.collectAll(view, context), all, "contexts do not leak between queries");
 
         // A row shared with an earlier group must still respect order inside the later group.
-        InfomationGroup earlier = registry.registerGroup(id("earlier"), Component.literal("Earlier"), -10);
-        InfomationGroup later = registry.registerGroup(id("later"), Component.literal("Later"), 20);
-        registry.register(id("late_shared"), List.of(earlier, later), 100, (v, c) -> Optional.of(new InformationRowContent(Component.literal("Late"), new InformationValue.Number(1), Set.of())));
-        registry.register(id("early_single"), later, 0, (v, c) -> Optional.of(new InformationRowContent(Component.literal("Early"), new InformationValue.Number(1), Set.of())));
-        InformationDocument sorted = registry.collect(view, context, later);
-        helper.assertValueEqual(sorted.rows().stream().map(InformationRowResult::id).toList(), List.of(id("early_single"), id("late_shared")), "single group order independent of other memberships");
-        helper.assertValueEqual(sorted.rows(), registry.collectAll(view, context).rows(later), "document group ordering matches direct collection");
+        Holder<InformationGroup> later = groups.get(ResourceKey.create(SaturnResourceKeys.INFORMATION_GROUP, id("later"))).orElseThrow();
+        InformationDocument sorted = PlayerInformation.collect(view, context, later);
+        helper.assertValueEqual(sorted.rows().stream().map(InformationEntry::id).toList(), List.of(id("early_single"), id("late_shared")), "single group order independent of other memberships");
+        helper.assertValueEqual(sorted.rows(), all.rows(later), "document group ordering matches direct collection");
         helper.succeed();
     }
 
@@ -246,61 +255,66 @@ public final class InformationTests {
         MappedRegistry<InformationGroup> groups = new MappedRegistry<>(SaturnResourceKeys.INFORMATION_GROUP, Lifecycle.stable());
         HolderLookup.Provider provider = HolderLookup.Provider.create(Stream.of(rows, groups));
         RegistryOps<JsonElement> ops = provider.createSerializationContext(JsonOps.INSTANCE);
-        InformationGroup mixed = InformationGroup.CODEC.parse(ops, JsonParser.parseString("""
+        InformationGroup mixed = InformationGroup.DIRECT_CODEC.parse(ops, JsonParser.parseString("""
                 {"title":"Mixed","order":0,"rows":["saturn:health","#saturn:basic","saturn:health","#saturn:not_defined"]}
                 """)).getOrThrow();
         Registry.register(groups, id("basic"), mixed);
-        Registry.register(groups, id("extra"), InformationGroup.CODEC.parse(ops, JsonParser.parseString("""
+        Registry.register(groups, id("extra"), InformationGroup.DIRECT_CODEC.parse(ops, JsonParser.parseString("""
                 {"title":"Extra","order":10,"rows":["saturn:health"]}
                 """)).getOrThrow());
         Registry.register(groups, id("empty"), new InformationGroup(Component.literal("Empty"), 20, List.of()));
         groups.freeze();
         helper.assertTrue(mixed.rows().getFirst().left().isPresent() && mixed.rows().get(1).right().isPresent(), "references decode as Either Holder or Tag");
-        JsonElement json = InformationGroup.CODEC.encodeStart(ops, mixed).getOrThrow();
+        JsonElement json = InformationGroup.DIRECT_CODEC.encodeStart(ops, mixed).getOrThrow();
         helper.assertTrue(json.getAsJsonObject().getAsJsonArray("rows").asList().stream().anyMatch(value -> value.getAsString().equals("#saturn:basic")), "group codec preserves tag references");
-        helper.assertTrue(InformationGroup.CODEC.parse(ops, JsonParser.parseString("{\"title\":\"Bad\",\"rows\":[\"absent:row\"]}")).isError(), "unresolved direct row rejected");
-        PlayerInformationRegistry registry = new PlayerInformationRegistry();
-        InfomationGroup basic = registry.registerGroup(id("basic"), Component.literal("Code basic"), 0);
-        registry.register(id("legacy_default"), basic, 0, (v, c) -> Optional.of(new InformationRowContent(Component.literal("Legacy"), new InformationValue.Number(1), Set.of())));
+        helper.assertTrue(InformationGroup.DIRECT_CODEC.parse(ops, JsonParser.parseString("{\"title\":\"Bad\",\"rows\":[\"absent:row\"]}")).isError(), "unresolved direct row rejected");
+        Holder<InformationGroup> basic = groups.get(ResourceKey.create(SaturnResourceKeys.INFORMATION_GROUP, id("basic"))).orElseThrow();
         PlayerViewSnapshot view = builder(helper).build();
         InformationContext context = new InformationContext("en_us", provider);
-        InformationDocument all = registry.collectAll(view, context);
-        helper.assertValueEqual(all.rows().size(), 17, "all includes rows not selected by any group");
-        InformationDocument selected = registry.collect(view, context, basic);
+        InformationDocument all = PlayerInformation.collectAll(view, context);
+        helper.assertValueEqual(all.rows().size(), 16, "all includes rows not selected by any group");
+        InformationDocument selected = PlayerInformation.collect(view, context, basic);
         helper.assertValueEqual(selected.rows().size(), 6, "direct and tag overlap deduplicated; unknown tag empty");
-        helper.assertTrue(selected.rows().stream().noneMatch(row -> row.id().equals(id("legacy_default"))), "data group replaces code group selections");
-        helper.assertTrue(row(all, "legacy_default").groups().isEmpty(), "code row removed from group remains in all");
+        helper.assertValueEqual(PlayerInformation.groups(view, context).size(), 3, "registry listing includes empty groups");
         helper.assertValueEqual(row(all, "health").groups().size(), 2, "same row selected by multiple groups");
         helper.assertTrue(row(all, "abilities").groups().isEmpty(), "unselected data row has no computed groups");
-        helper.assertValueEqual(registry.collect(view, context, Set.of(basic, mixed.resolve(id("extra")))).rows().size(), 6, "union deduplicates shared row");
-        helper.assertTrue(registry.collect(view, context, mixed.resolve(id("empty"))).rows().isEmpty(), "explicit empty group");
-        helper.assertTrue(registry.collect(view, context, Set.of()).rows().isEmpty(), "empty group selection still means none");
-        helper.assertTrue(registry.collectAll(view, context).filter(field -> !field.equals(id("health"))).rows().stream().noneMatch(row -> row.id().equals(id("health"))), "shared row field filtering preserved");
+        helper.assertValueEqual(PlayerInformation.collect(view, context, Set.of(basic, groups.get(ResourceKey.create(SaturnResourceKeys.INFORMATION_GROUP, id("extra"))).orElseThrow())).rows().size(), 6, "union deduplicates shared row");
+        helper.assertTrue(PlayerInformation.collect(view, context, groups.get(ResourceKey.create(SaturnResourceKeys.INFORMATION_GROUP, id("empty"))).orElseThrow()).rows().isEmpty(), "explicit empty group");
+        helper.assertTrue(PlayerInformation.collect(view, context, Set.of()).rows().isEmpty(), "empty group selection still means none");
+        helper.assertTrue(PlayerInformation.collectAll(view, context).filter(field -> !field.equals(id("health"))).rows().stream().noneMatch(row -> row.id().equals(id("health"))), "shared row field filtering preserved");
         helper.succeed();
     }
 
     private static void documentCodec(GameTestHelper helper) {
         RegistryOps<JsonElement> ops = helper.getLevel().registryAccess().createSerializationContext(JsonOps.INSTANCE);
-        InfomationGroup extra = new InfomationGroup(id("extra"), Component.literal("Extra"), 100);
-        InformationRowResult row = new InformationRowResult(id("shared"), List.of(PlayerInformation.BASIC, extra), 0, 70,
-                new InformationRowContent(Component.literal("Label"), new InformationValue.Number(3), Set.of(id("health"))));
-        JsonElement json = InformationRowResult.CODEC.encodeStart(ops, row).getOrThrow();
-        helper.assertValueEqual(InformationRowResult.CODEC.parse(ops, json).getOrThrow().groups().size(), 2, "new multi group wire roundtrip");
-        JsonObject legacy = json.deepCopy().getAsJsonObject();
-        legacy.add("group", legacy.remove("groups").getAsJsonArray().get(0));
-        legacy.remove("importance");
-        helper.assertValueEqual(InformationRowResult.CODEC.parse(ops, legacy).getOrThrow().importance(), 0, "legacy wire with single group and no importance");
+        InformationEntry row = new InformationEntry(InformationRow.CODEC.parse(ops, new JsonPrimitive("saturn:health")).getOrThrow(),
+                Set.of(group(helper, "basic"), group(helper, "status")), Component.literal("Label"), new InformationValue.Number(3), Optional.of(Component.literal("Tooltip")));
+        JsonElement json = InformationEntry.CODEC.encodeStart(ops, row).getOrThrow();
+        helper.assertValueEqual(json.getAsJsonObject().get("row").getAsString(), "saturn:health", "entry refers to the registered row by id");
+        helper.assertTrue(!json.getAsJsonObject().has("order") && !json.getAsJsonObject().has("importance") && !json.getAsJsonObject().has("content"), "entry does not duplicate definition metadata or nest content");
+        InformationEntry decoded = InformationEntry.CODEC.parse(ops, json).getOrThrow();
+        helper.assertValueEqual(decoded, row, "flat entry JSON roundtrip");
+        helper.assertTrue(decoded.row() == row.row(), "entry codec resolves the original registry holder");
+        helper.assertValueEqual(decoded.importance(), row.row().value().importance(), "importance read from the registered definition");
         JsonObject ungrouped = json.deepCopy().getAsJsonObject();
-        ungrouped.add("groups", new JsonArray());
-        helper.assertTrue(InformationRowResult.CODEC.parse(ops, ungrouped).getOrThrow().groups().isEmpty(), "ungrouped results remain serializable");
-        helper.assertTrue(InformationRow.CODEC.parse(ops, JsonParser.parseString("{\"label\":\"X\",\"value\":0}")).isSuccess(), "row definitions are independent of groups");
+        ungrouped.remove("groups");
+        helper.assertTrue(InformationEntry.CODEC.parse(ops, ungrouped).getOrThrow().groups().isEmpty(), "ungrouped entries default to an empty set");
+        JsonObject unknown = json.deepCopy().getAsJsonObject();
+        unknown.addProperty("row", "absent:row");
+        helper.assertTrue(InformationEntry.CODEC.parse(ops, unknown).isError(), "unregistered row references are rejected");
+        helper.assertValueEqual(InformationRow.DIRECT_CODEC.parse(ops, JsonParser.parseString("{\"label\":\"X\",\"value\":0}")).getOrThrow().importance(), 0, "row definition importance defaults to zero");
         InformationDocument document = new InformationDocument(List.of(row));
         Tag tag = InformationDocument.CODEC.encodeStart(helper.getLevel().registryAccess().createSerializationContext(NbtOps.INSTANCE), document).getOrThrow();
         helper.assertValueEqual(InformationDocument.CODEC.parse(helper.getLevel().registryAccess().createSerializationContext(NbtOps.INSTANCE), tag).getOrThrow().rows().getFirst().groups().size(), 2, "NBT document roundtrip");
         helper.succeed();
     }
 
-    private static InformationRowResult row(InformationDocument document, String name) {
+    static Holder<InformationGroup> group(GameTestHelper helper, String path) {
+        return helper.getLevel().registryAccess().lookupOrThrow(SaturnResourceKeys.INFORMATION_GROUP)
+                .get(ResourceKey.create(SaturnResourceKeys.INFORMATION_GROUP, id(path))).orElseThrow();
+    }
+
+    private static InformationEntry row(InformationDocument document, String name) {
         return document.rows().stream().filter(row -> row.id().equals(id(name))).findFirst().orElseThrow();
     }
 

@@ -29,8 +29,8 @@ import java.util.stream.Collectors;
 import static net.minecraft.commands.Commands.literal;
 
 /**
- * The server command surface: everything that can be read or changed without a screen. Saturn registers one root,
- * {@code /saturn}, and a dependent mod keeps its own; the two never share a top-level literal.
+ * The server command surface. Nodes are always available under {@code /saturn}; configured aliases also expose them
+ * at the top level when no other mod owns that literal. Information can be sent as text or opened in a screen.
  *
  * <p>What is <em>not</em> here is a node for a system Saturn does not run: there is no node for a content event, a
  * world rule or a page. Reading definitions, stored state, and the framework's own runtimes is what belongs here.
@@ -49,7 +49,7 @@ public final class ServerCommandManager {
     public static void register(RegisterCommandsEvent event) {
         CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
         LiteralArgumentBuilder<CommandSourceStack> root = literal(Saturn.MOD_ID);
-        root.then(InformationCommand.node());
+        node(root, dispatcher, InformationCommand.node(), SaturnConfig.INFORMATION_ROOT);
         node(root, dispatcher, ProfilerCommand.node(), SaturnConfig.PROFILER_ROOT);
         node(root, dispatcher, literal("registries").executes(ctx -> listRegistries(ctx.getSource())), SaturnConfig.REGISTRIES_ROOT);
         node(root, dispatcher, literal("attachment").then(literal("status").executes(ctx -> attachmentStatus(ctx.getSource()))), SaturnConfig.ATTACHMENT_ROOT);
