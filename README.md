@@ -22,5 +22,7 @@ foundation for creating complex gameplay mechanics without the need to reinvent 
   resources.
 - Client-side Features: Includes a drag-and-drop HUD editor, resource bar rendering, and support for custom HUD
   elements.
+- Player Views: Parse supplied player data into detached, extensible views and registered information rows; retrieve
+  all rows or select groups. See [the player-view API](docs/PLAYER-VIEWS.md).
 - Profiling: Built-in profiling tools to help you optimize your mod's performance and identify potential bottlenecks.
 - KubeJS Integration: Seamless integration with KubeJS for scripting and extending the library's functionality.

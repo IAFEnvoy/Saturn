@@ -75,10 +75,10 @@ public record MyAuraCost(NumberProvider amount) implements Cost {
     public static final MapCodec<MyAuraCost> CODEC = ...;
 
     @Override
-    public ResultWithData<Transaction> prepare(CostContext context) {
+    public Result<Transaction> prepare(CostContext context) {
         AuraCostSource source = context.get("mymod:aura_source").map(AuraCostSource.class::cast).orElse(null);
-        if (source == null) return ResultWithData.failure(null, CostFailure.NO_CHANNEL);
-        return ResultWithData.success(source.bind(context, this.amount().evaluate(context.formula())));
+        if (source == null) return Result.failure(CostFailure.NO_CHANNEL);
+        return Result.success(source.bind(context, this.amount().evaluate(context.formula())));
     }
 
     @Override
@@ -88,11 +88,13 @@ public record MyAuraCost(NumberProvider amount) implements Cost {
 
 - `CostContext` 是 `record(payer, formula, origin, account, itemTarget, data)`；`data` 是 `with(key, value)` / `get(key)` 的扩展袋子，Saturn 只搬运不解释，键一律带命名空间。
 - `CostTarget` 是**开放接口**，你的 `Transaction` 可以带自己的目标类型。
-- `CostPayment.pay(List<Cost>, CostContext)`：先全部 `prepare`，再全部 `execute(true)` 试算，最后按序 `execute(false)` 实扣；实扣失败记日志并继续。`PaymentResult` 带 `debits()` 与 `resources()`。
+- `CostPayment.pay(List<Cost>, CostContext)`：先全部 `prepare`，再全部 `execute(true)` 试算，最后按序 `execute(false)` 实扣；实扣失败记日志并继续。返回 `Result<List<Debit>>`，`CostPayment.resources(debits)` 把凭据折成 id 键的数量表。
 
 ### 3.2 失败
 
-失败是值不是异常。`SimpleFailure.of("my_reason")` 造常量；想有自己的 lang 命名空间就包进 `FailureSource.of(你的注册表 key)`。返回用 `Result` / `ResultWithData`。
+失败是值不是异常。`SimpleFailure.of("my_reason")` 造常量；想有自己的 lang 命名空间就包进 `FailureSource.of(你的注册表 key)`。失败原因可以带受影响的资源（`withResource(id)`），语言键因此能说出「缺的是哪一门」。
+
+返回一律是 `Result<T>`：有数据就是 `Result<T>`，没有数据就是 `Result<Void>`（`Result.success()`）。判成败用 `instanceof Result.SuccessResult<?>` / `instanceof Result.FailureResult<?>`，取数据用 `getData()`，取原因用 `getFailure()`；失败结果不带数据。
 
 ### 3.3 附件
 
@@ -241,3 +243,11 @@ public MyMod(IEventBus bus) {
 - 公共 API 都在 `com.iafenvoy.saturn` 下：`data.*` 数据模型、`registry.*` 注册表、`runtime.*` 运行时、`screen.*` 客户端、`compat.kubejs` 可选脚本桥。
 - `data.*` 的 record 字段名就是 JSON 字段名，改字段等于破坏数据包。
 - 内部类（`builtin/*`、`util/profiling` 的细节）不承诺兼容。
+
+## 6. 玩家视图与信息行
+
+`api.playerview` 提供字段、只读视图、解析扩展和展示行契约；`view.PlayerViews` 仅解析调用方传入的数据。Saturn 不读取玩家文件、不保存归档，也不自行同步玩家信息。
+
+展示扩展逐行注册到 `PlayerInformation`，每行显式传 `InfomationGroup`。`collect(view, group)` 按组取，`collectAll(view)` 全取，两种入口同时保留；所有前端共享 Saturn 的注册结果。
+
+完整签名、字段、NBT 输入、Codec、界面与验证范围见 [玩家视图与展示行](PLAYER-VIEWS.md)。

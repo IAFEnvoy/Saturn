@@ -117,6 +117,30 @@ tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' 
 }
 
+sourceSets {
+    playerViewVerification {
+        java.setSrcDirs(['src/verification/java'])
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+    }
+}
+
+tasks.register('verifyPlayerViews', JavaExec) {
+    group = 'verification'
+    description = 'Checks player-view codecs and row/group contracts without starting Minecraft.'
+    dependsOn playerViewVerificationClasses
+    classpath = sourceSets.playerViewVerification.runtimeClasspath
+    mainClass = 'com.iafenvoy.saturn.view.PlayerViewVerification'
+    def verificationDirectory = layout.buildDirectory.dir('player-view-verification')
+    workingDir = verificationDirectory
+    doFirst {
+        verificationDirectory.get().asFile.mkdirs()
+    }
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
 idea {
     module {
         downloadSources = true

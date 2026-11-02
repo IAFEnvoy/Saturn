@@ -451,7 +451,6 @@ Saturn 当前 **547** 个 Java 文件，其中 498 个在 MiXianTu 有同名来�
 | `com/iafenvoy/saturn/runtime/resulting/FailureSource` | `src/main/java/com/iafenvoy/mxt/runtime/resulting/FailureSource.java` |
 | `com/iafenvoy/saturn/runtime/resulting/FailureSources` | `src/main/java/com/iafenvoy/mxt/runtime/resulting/FailureSources.java` |
 | `com/iafenvoy/saturn/runtime/resulting/Result` | `src/main/java/com/iafenvoy/mxt/runtime/resulting/Result.java` |
-| `com/iafenvoy/saturn/runtime/resulting/ResultWithData` | `src/main/java/com/iafenvoy/mxt/runtime/resulting/ResultWithData.java` |
 | `com/iafenvoy/saturn/runtime/resulting/SimpleFailure` | `src/main/java/com/iafenvoy/mxt/runtime/resulting/SimpleFailure.java` |
 | `com/iafenvoy/saturn/runtime/Sources` | `src/main/java/com/iafenvoy/mxt/runtime/Sources.java` |
 | `com/iafenvoy/saturn/runtime/trigger/TriggerDispatcher` | `src/main/java/com/iafenvoy/mxt/runtime/trigger/TriggerDispatcher.java` |
