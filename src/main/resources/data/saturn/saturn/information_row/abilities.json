@@ -1,0 +1,22 @@
+{
+  "order": 50,
+  "importance": 70,
+  "label": {
+    "translate": "info.saturn.field.abilities"
+  },
+  "value": {
+    "type": "saturn:list",
+    "source": {
+      "type": "saturn:getter",
+      "getter": {
+        "type": "saturn:abilities"
+      }
+    },
+    "element": {
+      "type": "saturn:text",
+      "value": {
+        "type": "saturn:local"
+      }
+    }
+  }
+}

@@ -1,6 +1,5 @@
 package com.iafenvoy.saturn.compat.kubejs.binding;
 
-import com.iafenvoy.saturn.runtime.resulting.Result;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.iafenvoy.saturn.compat.kubejs.SaturnJsWarnings;
@@ -10,6 +9,7 @@ import com.iafenvoy.saturn.data.cost.Cost;
 import com.iafenvoy.saturn.data.cost.CostPayment;
 import com.iafenvoy.saturn.data.cost.context.CostContext;
 import com.iafenvoy.saturn.data.cost.context.CostOrigins;
+import com.iafenvoy.saturn.runtime.resulting.Result;
 import com.iafenvoy.saturn.util.formula.FormulaContext;
 import com.iafenvoy.saturn.util.function.TriConsumer;
 import com.iafenvoy.saturn.util.function.TriPredicate;

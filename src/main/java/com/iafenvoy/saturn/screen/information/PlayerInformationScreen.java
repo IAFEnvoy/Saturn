@@ -1,7 +1,9 @@
 package com.iafenvoy.saturn.screen.information;
 
-import com.iafenvoy.saturn.view.model.*;
-import com.iafenvoy.saturn.view.InformationText;
+import com.iafenvoy.saturn.data.information.InformationText;
+import com.iafenvoy.saturn.data.information.model.InfomationGroup;
+import com.iafenvoy.saturn.data.information.model.InformationDocument;
+import com.iafenvoy.saturn.data.information.model.InformationRowResult;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
@@ -14,44 +16,66 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
-/** Renders caller-supplied rows, without resolving a player, requesting data or writing a save. */
+/**
+ * Renders caller-supplied rows, without resolving a player, requesting data or writing a save.
+ */
 public final class PlayerInformationScreen extends Screen {
     private final @Nullable Screen parent;
     private final InformationDocument document;
+    private final Optional<Set<InfomationGroup>> selectedGroups;
     private final List<Line> lines = new ArrayList<>();
     private int scroll;
 
     public PlayerInformationScreen(@Nullable Screen parent, InformationDocument document) {
+        this(parent, document, Optional.empty());
+    }
+
+    public PlayerInformationScreen(@Nullable Screen parent, InformationDocument document, Set<InfomationGroup> groups) {
+        this(parent, document, Optional.of(Set.copyOf(groups)));
+    }
+
+    private PlayerInformationScreen(@Nullable Screen parent, InformationDocument document, Optional<Set<InfomationGroup>> groups) {
         super(Component.translatable("screen.saturn.player_information"));
         this.parent = parent;
         this.document = document;
+        this.selectedGroups = groups;
     }
 
     @Override
     protected void init() {
         this.lines.clear();
-        InfomationGroup previous = null;
-        for (InformationRow row : this.document.rows()) {
-            if (!row.group().equals(previous)) {
-                this.addLines(row.group().title(), Optional.empty(), 0xFFFFD24A);
-                previous = row.group();
-            }
-            int color = switch (row.content().tone()) {
-                case NORMAL -> 0xFFE0E4EC;
-                case POSITIVE -> 0xFF55FF55;
-                case WARNING -> 0xFFFFAA00;
-            };
-            for (Component text : InformationText.lines(row.content())) this.addLines(text, row.content().tooltip(), color);
+        for (InfomationGroup group : this.document.groups()) {
+            if (this.selectedGroups.isPresent() && !this.selectedGroups.get().contains(group)) continue;
+            this.addLines(group.title(), Optional.empty(), 0xFFFFD24A);
+            for (InformationRowResult row : this.document.rows(group)) this.addRow(row);
         }
-        if (this.lines.isEmpty()) this.addLines(Component.translatable("info.saturn.empty"), Optional.empty(), 0xFFE0E4EC);
+        if (this.selectedGroups.isEmpty()) {
+            List<InformationRowResult> ungrouped = this.document.rows().stream().filter(row -> row.groups().isEmpty()).toList();
+            if (!ungrouped.isEmpty())
+                this.addLines(Component.translatable("info.saturn.group.ungrouped"), Optional.empty(), 0xFFFFD24A);
+            ungrouped.forEach(this::addRow);
+        }
+        if (this.lines.isEmpty())
+            this.addLines(Component.translatable("info.saturn.empty"), Optional.empty(), 0xFFE0E4EC);
         this.scroll = Math.clamp(this.scroll, 0, this.maximumScroll());
         this.addRenderableWidget(Button.builder(CommonComponents.GUI_DONE, button -> this.onClose())
                 .bounds(this.width / 2 - 60, this.height - 28, 120, 20).build());
     }
 
+    private void addRow(InformationRowResult row) {
+        int color = switch (row.content().tone()) {
+            case NORMAL -> 0xFFE0E4EC;
+            case POSITIVE -> 0xFF55FF55;
+            case WARNING -> 0xFFFFAA00;
+        };
+        for (Component text : InformationText.lines(row.content())) this.addLines(text, row.content().tooltip(), color);
+    }
+
     private void addLines(Component text, Optional<Component> tooltip, int color) {
-        for (FormattedCharSequence line : this.font.split(text, Math.max(20, this.width - 48))) this.lines.add(new Line(line, tooltip, color));
+        for (FormattedCharSequence line : this.font.split(text, Math.max(20, this.width - 48)))
+            this.lines.add(new Line(line, tooltip, color));
     }
 
     @Override

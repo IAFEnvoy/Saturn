@@ -8,6 +8,8 @@ import com.iafenvoy.saturn.data.action.EntityAction;
 import com.iafenvoy.saturn.data.action.ItemAction;
 import com.iafenvoy.saturn.data.condition.*;
 import com.iafenvoy.saturn.data.cost.Cost;
+import com.iafenvoy.saturn.data.information.expression.InformationExpression;
+import com.iafenvoy.saturn.data.information.getter.EntityValueGetter;
 import com.iafenvoy.saturn.data.resource.ResourceValueProvider;
 import com.iafenvoy.saturn.data.resourcebar.ResourceBarContext;
 import com.iafenvoy.saturn.data.resourcebar.ResourceBarRenderData;
@@ -22,6 +24,7 @@ import com.mojang.serialization.Lifecycle;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.DefaultedMappedRegistry;
 import net.minecraft.core.DefaultedRegistry;
+import net.minecraft.core.MappedRegistry;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -33,12 +36,15 @@ import java.util.LinkedList;
 import java.util.List;
 
 /**
- * The code registries Saturn owns. The default id of each is part of the data-pack contract: a definition that omits
- * its {@code type} field loads as that entry.
+ * The code registries Saturn owns. Type registries carry defaults; player view fields use strict id lookup.
  */
 @EventBusSubscriber
 public final class SaturnRegistries {
-    private static final List<DefaultedRegistry<?>> REGISTRIES = new LinkedList<>();
+    private static final List<Registry<?>> REGISTRIES = new LinkedList<>();
+
+    public static final Registry<MapCodec<? extends EntityValueGetter<?>>> ENTITY_VALUE_GETTER = create(SaturnResourceKeys.ENTITY_VALUE_GETTER);
+
+    public static final DefaultedRegistry<MapCodec<? extends InformationExpression>> INFORMATION_EXPRESSION_TYPE = create("constant", SaturnResourceKeys.INFORMATION_EXPRESSION_TYPE);
 
     public static final DefaultedRegistry<MapCodec<? extends AbilityType>> ABILITY_TYPE = create("empty", SaturnResourceKeys.ABILITY_TYPE);
     public static final DefaultedRegistry<MapCodec<? extends TargetSelector>> ABILITY_TARGET_SELECTOR_TYPE = create("self", SaturnResourceKeys.ABILITY_TARGET_SELECTOR_TYPE);
@@ -64,12 +70,18 @@ public final class SaturnRegistries {
     public static final DefaultedRegistry<MapCodec<? extends Entry>> ITEM_MATCHER_ENTRY_TYPE = create("item", SaturnResourceKeys.ITEM_MATCHER_ENTRY_TYPE);
     public static final DefaultedRegistry<MapCodec<? extends TimelineEntry>> TIMELINE_ENTRY_TYPE = create("idle", SaturnResourceKeys.TIMELINE_ENTRY_TYPE);
 
-    public static List<DefaultedRegistry<?>> all() {
+    public static List<Registry<?>> all() {
         return List.copyOf(REGISTRIES);
     }
 
     private static <T> DefaultedRegistry<T> create(String defaultKey, ResourceKey<? extends Registry<T>> key) {
         DefaultedRegistry<T> registry = new DefaultedMappedRegistry<>(defaultKey, key, Lifecycle.stable(), false);
+        REGISTRIES.add(registry);
+        return registry;
+    }
+
+    private static <T> Registry<T> create(ResourceKey<? extends Registry<T>> key) {
+        Registry<T> registry = new MappedRegistry<>(key, Lifecycle.stable(), false);
         REGISTRIES.add(registry);
         return registry;
     }

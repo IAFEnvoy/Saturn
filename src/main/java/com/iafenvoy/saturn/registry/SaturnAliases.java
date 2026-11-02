@@ -48,6 +48,7 @@ import java.util.function.Function;
  * <p>An id the registry already holds is left alone, which is what keeps a content mod's own entries and a second
  * namespace's aliases from colliding. Attachments are deliberately not aliased: an attachment id is stored per
  * entity, so a second id would be a second attachment rather than a renamed one.
+ * Player view fields are also excluded: their ids identify stored facts and duplicate entries would capture twice.
  */
 @EventBusSubscriber
 public final class SaturnAliases {
@@ -91,7 +92,9 @@ public final class SaturnAliases {
         // Both are resolved by name, not by registry id, so a second id adds no lookup path and would put two
         // entries with one name into the registry.
         if (register.getRegistryKey().equals(SaturnResourceKeys.FORMULA_FUNCTION)
-                || register.getRegistryKey().equals(SaturnResourceKeys.FORMULA_VARIABLE)) return;
+                || register.getRegistryKey().equals(SaturnResourceKeys.FORMULA_VARIABLE)
+                // A field id identifies stored facts; aliases would capture the same fact a second time.
+                || register.getRegistryKey().equals(SaturnResourceKeys.ENTITY_VALUE_GETTER)) return;
         Registry<T> registry = event.getRegistry(register.getRegistryKey());
         AliasManager aliasManager = manager;
         if (registry == null) return;

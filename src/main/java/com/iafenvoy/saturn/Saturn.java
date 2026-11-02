@@ -1,6 +1,7 @@
 package com.iafenvoy.saturn;
 
 import com.iafenvoy.saturn.config.SaturnConfig;
+import com.iafenvoy.saturn.gametest.InformationTests;
 import com.iafenvoy.saturn.registry.SaturnAttachments;
 import com.iafenvoy.saturn.registry.SaturnContent;
 import com.iafenvoy.saturn.registry.SaturnLootRegistries;
@@ -35,6 +36,7 @@ public final class Saturn {
         SaturnAttachments.REGISTRY.register(bus);
         SaturnLootRegistries.register(bus);
         SaturnContent.register(bus);
+        InformationTests.register(bus);
     }
 
     /**

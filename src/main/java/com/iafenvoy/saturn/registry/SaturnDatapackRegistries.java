@@ -1,6 +1,8 @@
 package com.iafenvoy.saturn.registry;
 
 import com.iafenvoy.saturn.data.ability.Ability;
+import com.iafenvoy.saturn.data.information.InformationGroup;
+import com.iafenvoy.saturn.data.information.InformationRow;
 import com.iafenvoy.saturn.data.item.IncompleteMarker;
 import com.iafenvoy.saturn.data.resource.Resource;
 import com.iafenvoy.saturn.data.trigger.TriggerRule;
@@ -30,6 +32,8 @@ public final class SaturnDatapackRegistries {
 
     @SubscribeEvent
     public static void newDatapackRegistries(NewRegistry event) {
+        register(event, SaturnResourceKeys.INFORMATION_ROW, InformationRow.CODEC);
+        register(event, SaturnResourceKeys.INFORMATION_GROUP, InformationGroup.CODEC);
         register(event, SaturnResourceKeys.RESOURCE, Resource.DIRECT_CODEC);
         register(event, SaturnResourceKeys.ABILITY, Ability.DIRECT_CODEC);
         register(event, SaturnResourceKeys.TRIGGER, TriggerRule.DIRECT_CODEC);

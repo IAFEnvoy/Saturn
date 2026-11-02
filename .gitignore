@@ -28,6 +28,7 @@ bin/
 .DS_Store
 
 run/
+run-game-tests/
 !**/src/**/run/
 **/src/generated/**/.cache/
 repo/

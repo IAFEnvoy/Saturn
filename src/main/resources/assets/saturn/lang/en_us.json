@@ -1,4 +1,7 @@
 {
+  "command.saturn.information.all": "Information for %s (%s rows)",
+  "command.saturn.information.group": "Information for %s — %s (%s rows)",
+  "command.saturn.information.unknown_group": "Unknown information group: %s",
   "key.category.saturn.general": "Saturn",
   "key.saturn.hud_layout": "Edit HUD Layout",
   "hud.saturn.resource_column.left": "Resource Bars (Left)",
@@ -99,6 +102,7 @@
   "saturn.profiling.saturn.ability.reconcile.tooltip": "Matching the abilities every source should grant against the ones held, then writing the passive modifiers back; every living entity runs it every tick.",
   "saturn.profiling.saturn.ability.cast.tooltip": "Executing one cast, whether it lands at once or later.",
   "saturn.profiling.saturn.ability.channel.tooltip": "One tick of a skill that is being channelled.",
+  "info.saturn.group.ungrouped": "Other information",
   "info.saturn.group.basic": "Overview",
   "info.saturn.group.status": "Status",
   "info.saturn.group.equipment": "Equipment",

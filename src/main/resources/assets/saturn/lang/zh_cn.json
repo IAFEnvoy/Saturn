@@ -1,4 +1,7 @@
 {
+  "command.saturn.information.all": "%s 的信息（%s 项）",
+  "command.saturn.information.group": "%s 的信息 — %s（%s 项）",
+  "command.saturn.information.unknown_group": "未知的信息分组：%s",
   "key.category.saturn.general": "Saturn",
   "key.saturn.hud_layout": "编辑 HUD 布局",
   "hud.saturn.resource_column.left": "资源条（左）",
@@ -99,6 +102,7 @@
   "saturn.profiling.saturn.ability.reconcile.tooltip": "把每个来源该授予的技能与当前持有的对账，并写回被动属性修正；每个存活实体每 tick 都会跑一次。",
   "saturn.profiling.saturn.ability.cast.tooltip": "一次技能施放的执行，含瞬发与延迟落地。",
   "saturn.profiling.saturn.ability.channel.tooltip": "持续引导中的技能每 tick 的推进。",
+  "info.saturn.group.ungrouped": "其他信息",
   "info.saturn.group.basic": "概况",
   "info.saturn.group.status": "状态",
   "info.saturn.group.equipment": "装备",

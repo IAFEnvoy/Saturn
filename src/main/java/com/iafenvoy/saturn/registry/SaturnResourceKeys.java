@@ -10,6 +10,10 @@ import com.iafenvoy.saturn.data.action.EntityAction;
 import com.iafenvoy.saturn.data.action.ItemAction;
 import com.iafenvoy.saturn.data.condition.*;
 import com.iafenvoy.saturn.data.cost.Cost;
+import com.iafenvoy.saturn.data.information.InformationGroup;
+import com.iafenvoy.saturn.data.information.InformationRow;
+import com.iafenvoy.saturn.data.information.expression.InformationExpression;
+import com.iafenvoy.saturn.data.information.getter.EntityValueGetter;
 import com.iafenvoy.saturn.data.item.IncompleteMarker;
 import com.iafenvoy.saturn.data.resource.Resource;
 import com.iafenvoy.saturn.data.resource.ResourceValueProvider;
@@ -37,6 +41,8 @@ import net.objecthunter.exp4j.function.Function;
  */
 public final class SaturnResourceKeys {
     // Builtin registries
+    public static final ResourceKey<Registry<MapCodec<? extends EntityValueGetter<?>>>> ENTITY_VALUE_GETTER = create("entity_value_getter");
+    public static final ResourceKey<Registry<MapCodec<? extends InformationExpression>>> INFORMATION_EXPRESSION_TYPE = create("information_expression_type");
     public static final ResourceKey<Registry<MapCodec<? extends AbilityType>>> ABILITY_TYPE = create("ability_type");
     public static final ResourceKey<Registry<MapCodec<? extends TargetSelector>>> ABILITY_TARGET_SELECTOR_TYPE = create("ability_target_selector_type");
     public static final ResourceKey<Registry<MapCodec<? extends Cost>>> COST_TYPE = create("cost_type");
@@ -62,6 +68,8 @@ public final class SaturnResourceKeys {
     public static final ResourceKey<Registry<MapCodec<? extends TimelineEntry>>> TIMELINE_ENTRY_TYPE = create("timeline_entry_type");
 
     // Datapack registries
+    public static final ResourceKey<Registry<InformationGroup>> INFORMATION_GROUP = create("information_group");
+    public static final ResourceKey<Registry<InformationRow>> INFORMATION_ROW = create("information_row");
     public static final ResourceKey<Registry<Resource>> RESOURCE = create("resource");
     public static final ResourceKey<Registry<Ability>> ABILITY = create("ability");
     public static final ResourceKey<Registry<TriggerRule>> TRIGGER = create("trigger");

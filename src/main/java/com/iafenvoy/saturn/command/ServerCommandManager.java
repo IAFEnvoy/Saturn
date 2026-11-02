@@ -3,10 +3,7 @@ package com.iafenvoy.saturn.command;
 import com.iafenvoy.saturn.Saturn;
 import com.iafenvoy.saturn.attachment.AbilityAttachment;
 import com.iafenvoy.saturn.attachment.ResourceHolderAttachment;
-import com.iafenvoy.saturn.command.server.AbilityCommand;
-import com.iafenvoy.saturn.command.server.ProfilerCommand;
-import com.iafenvoy.saturn.command.server.ResourceCommand;
-import com.iafenvoy.saturn.command.server.TriggersCommand;
+import com.iafenvoy.saturn.command.server.*;
 import com.iafenvoy.saturn.config.SaturnConfig;
 import com.iafenvoy.saturn.data.storage.builtin.CooldownDataStorage;
 import com.iafenvoy.saturn.registry.SaturnAttachments;
@@ -52,6 +49,7 @@ public final class ServerCommandManager {
     public static void register(RegisterCommandsEvent event) {
         CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
         LiteralArgumentBuilder<CommandSourceStack> root = literal(Saturn.MOD_ID);
+        root.then(InformationCommand.node());
         node(root, dispatcher, ProfilerCommand.node(), SaturnConfig.PROFILER_ROOT);
         node(root, dispatcher, literal("registries").executes(ctx -> listRegistries(ctx.getSource())), SaturnConfig.REGISTRIES_ROOT);
         node(root, dispatcher, literal("attachment").then(literal("status").executes(ctx -> attachmentStatus(ctx.getSource()))), SaturnConfig.ATTACHMENT_ROOT);
@@ -78,8 +76,7 @@ public final class ServerCommandManager {
         dispatcher.register(node);
     }
 
-    // Datapack registries are counted through the access; code registries carry their default id, which is the
-    // contract a definition without a type field relies on.
+    // Datapack registries are counted through the access; code registries include a default id when they have one.
     private static int listRegistries(CommandSourceStack source) {
         String datapack = SaturnDatapackRegistries.registries().stream()
                 .map(key -> key.identifier() + "=" + source.registryAccess().lookupOrThrow(key).size())
@@ -92,9 +89,10 @@ public final class ServerCommandManager {
         return SaturnDatapackRegistries.registries().size() + SaturnRegistries.all().size();
     }
 
-    private static String describe(DefaultedRegistry<?> registry) {
+    private static String describe(Registry<?> registry) {
         ResourceKey<? extends Registry<?>> key = registry.key();
-        return key.identifier() + "=" + registry.size() + "/" + registry.getDefaultKey();
+        return key.identifier() + "=" + registry.size()
+                + (registry instanceof DefaultedRegistry<?> defaults ? "/" + defaults.getDefaultKey() : "");
     }
 
     private static int attachmentStatus(CommandSourceStack source) throws CommandSyntaxException {

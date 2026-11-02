@@ -1,6 +1,7 @@
 package com.iafenvoy.saturn.util.codec;
 
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.DataResult;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.LightLayer;
 
@@ -12,6 +13,12 @@ public final class ExtraEnumCodecs {
     public static final Codec<ClipContext.Fluid> CLIP_CONTEXT_FLUID = enumCodec(ClipContext.Fluid.class);
 
     public static <T extends Enum<T>> Codec<T> enumCodec(Class<T> clazz) {
-        return Codec.stringResolver(x -> x.name().toLowerCase(Locale.ROOT), x -> Enum.valueOf(clazz, x.toUpperCase(Locale.ROOT)));
+        return Codec.STRING.comapFlatMap(name -> {
+            try {
+                return DataResult.success(Enum.valueOf(clazz, name.toUpperCase(Locale.ROOT)));
+            } catch (IllegalArgumentException ignored) {
+                return DataResult.error(() -> "Unknown " + clazz.getSimpleName() + ": " + name);
+            }
+        }, value -> value.name().toLowerCase(Locale.ROOT));
     }
 }

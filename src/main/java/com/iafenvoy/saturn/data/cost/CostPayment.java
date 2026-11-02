@@ -84,7 +84,8 @@ public final class CostPayment {
             if (this.closed) return Optional.of(CostFailure.BILL_CLOSED);
             for (Cost cost : costs) {
                 Result<Cost.Transaction> prepared = cost.prepare(context);
-                if (prepared instanceof Result.FailureResult<?>) return this.broken(prepared.getFailure().orElseThrow(), null);
+                if (prepared instanceof Result.FailureResult<?>)
+                    return this.broken(prepared.getFailure().orElseThrow(), null);
                 this.entries.add(new Entry(context, prepared.getData().orElseThrow()));
             }
             return Optional.empty();

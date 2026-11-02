@@ -19,7 +19,7 @@
 - 模组 id 与注册表命名空间都是 `saturn`。
 - 定义写在 `data/<你的命名空间>/saturn/<注册表路径>/<条目>.json`。
 - **目录跟注册表 key 走，条目 id 跟你的命名空间走**：你可以把 `mymod:my_action` 注册到 `saturn:entity_action_type`，文件是 `data/mymod/saturn/entity_action_type/my_action.json`。
-- 省略 `type` 字段时用注册表的默认条目（§2 表第二列），它们都在 `saturn` 命名空间下。
+- 多数旧 Type 入口省略 `type` 时使用注册表默认条目（§2 表第二列）；信息表达式要求对象显式写 `type`，原始标量作为常量。
 
 ---
 
@@ -29,6 +29,8 @@
 
 | 静态字段 | 默认条目 |
 |---|---|
+| `ENTITY_VALUE_GETTER` | 无；严格查找参数 MapCodec，生成带参数的实体取值查询 |
+| `INFORMATION_EXPRESSION_TYPE` | `constant`（表达式对象仍要求显式 type） |
 | `ABILITY_TYPE` | `empty` |
 | `ABILITY_TARGET_SELECTOR_TYPE` | `self` |
 | `COST_TYPE` | `resource` |
@@ -57,7 +59,7 @@ public static final DeferredRegister<MapCodec<? extends EntityAction>> ACTIONS =
 
 ### 2.2 数据包注册表（`SaturnDatapackRegistries`）
 
-`saturn:resource`、`saturn:ability`、`saturn:trigger`、`saturn:incomplete` 由 Saturn 注册，你只写 JSON。
+`saturn:resource`、`saturn:ability`、`saturn:trigger`、`saturn:incomplete`、`saturn:information_group`、`saturn:information_row` 由 Saturn 注册，你只写 JSON。信息行/Group 的目录、参数与表达式示例见 [数据驱动信息行](INFORMATION-DATA.md)。
 
 - `saturn:incomplete`（`data/item/IncompleteMarker`）：把还没做完的物品标出来。文件里只有一个 `items`，装的是 `ItemMatcher` 的条目（物品、标签、通配、正则、`ingredient`，还能用 `type` 走自己的 `item_matcher_entry_type`）；任何一条命中就算命中，因此重叠不用排序——所有命中的声明画的是同一个角标。空 `items` 在加载期报错：那只能是写到一半的文件。
 - 角标由 `render/item/IncompleteMarkerRenderer` 画，贴图 `assets/saturn/textures/gui/incomplete.png`；它在客户端为每个物品注册一个 `IItemDecorator`，所以标记作用于“堆叠”而不是“物品类”，标签与需要读堆叠数据的匹配也能生效。
@@ -133,7 +135,7 @@ Saturn 只有两个实体附件：`SaturnAttachments.RESOURCE_HOLDER`（数值�
 | 节点 | 侧 | 作用 |
 |---|---|---|
 | `profiler on` / `off` / `status [sources…]` | 服务端 | 性能分析开关与读数（管理员） |
-| `registries` | 服务端 | 4 个数据包注册表大小 + 23 个代码注册表的「大小 / 默认条目」 |
+| `registries` | 服务端 | 数据包与代码注册表大小；有默认条目的代码表附带默认 ID |
 | `attachment status` | 服务端 | 两个 Saturn 附件：资源项数、能力来源数、冷却数 |
 | `ability list [target]` | 服务端 | 这个身体持有的技能与来源 |
 | `ability cast <id>` / `grant <targets> <id>` / `revoke <targets> <id>` | 服务端 | 施放、按命令自己的来源授予与收回（管理员） |
@@ -215,9 +217,10 @@ public MyMod(IEventBus bus) {
 ```
 
 - `api/AliasManager`：`Optional<Identifier> alias(String namespace, Identifier id)`，返回某个内置条目的旧 id，空表示这个命名空间没这么用过；`AliasManager.SAME_PATH` 把同样的 path 放进内容方命名空间。
-- `registry/SaturnAliases`：`set(manager)` / `add(namespace)`。在 **`EventPriority.LOWEST` 的 `RegisterEvent`** 里，遍历 23 个内置注册器加 2 个原版战利品注册器的每个条目，用旧 id **再注册一次同样的值**——这时各注册器自己的条目已经注册、holder 已经绑定，注册表也还没冻结。
+- `registry/SaturnAliases`：`set(manager)` / `add(namespace)`。在 **`EventPriority.LOWEST` 的 `RegisterEvent`** 里，遍历内置注册器加 2 个原版战利品注册器的每个条目，用旧 id **再注册一次同样的值**——这时各注册器自己的条目已经注册、holder 已经绑定，注册表也还没冻结。
 - 为什么要包一层：注册表对“同一个对象挂在两个 id 下”会抛 `Adding duplicate value`（`MappedRegistry` 用 `IdentityHashMap` 查重）。所以 `MapCodec` 用 `xmap(identity, identity)` 重造一个等价实例，`Function` 用 `SimpleFunction` 委托，`FormulaVariable` 与 `ResourceBarContext` 用记录式委托。
 - 跳过：注册表已经占用的旧 id（内容侧自己还在用）、`saturn` 自己的命名空间、附件——附件 id 存在实体上，第二个 id 会变成第二份附件而不是改名。
+- `player_view_field` 也不复制别名：字段 ID 对应保存的事实，第二条记录会重复采集，不应作为重命名手段。
 - 时机：`add` 必须在 mod 构造里调用；setup 之后再加会打一条 warn 并忽略。
 - **公式函数与公式变量不参与别名**：两者都按名字解析（函数看 `getName`，变量看 `names` / `prefixes`），第二个 id 不增加任何查找路径，只会让同一个名字在注册表里出现两次，而公式索引对重名直接抛异常。老数据写 `mxt:round` 或 `mxt:caster_` 本来就不经过注册表 id，因此不需要别名。
 - 与 NeoForge `DeferredRegister.addAlias` 的区别：那套只把别名记进 `IRegistryExtension` 并随注册表快照同步，当前版本的原版查找（`Registry#get` / `byNameCodec`）不经过 `resolve`；真正让旧 id 可解析的是这里的第二次注册。
@@ -233,8 +236,8 @@ public MyMod(IEventBus bus) {
 | 品质（quality） | `quality` 匹配条目与 `QualityRequirement` 都不在 Saturn。 |
 | 物品侧存储 | `DataStorageHolder` 只挂在 `AbilityAttachment` 上，没有物品组件。 |
 | profiler 界面与网络 | 只有 `/saturn profiler`；要图形界面自己读 `ServerProfiling.snapshot`。 |
-| 测试 | 没有 GameTest。 |
-| 内置数据包定义 | Saturn 不含任何 JSON。 |
+| 玩家视图测试 | 已有独立核心检查和 main 源码集的信息行 GameTest；其他系统不在其验证范围。 |
+| 内置数据包定义 | 已包含信息行/Group JSON；玩法资源和技能定义由内容模组提供。 |
 
 ---
 
@@ -246,8 +249,14 @@ public MyMod(IEventBus bus) {
 
 ## 6. 玩家视图与信息行
 
-`api.playerview` 提供字段、只读视图、解析扩展和展示行契约；`view.PlayerViews` 仅解析调用方传入的数据。Saturn 不读取玩家文件、不保存归档，也不自行同步玩家信息。
+`api.playerview` 提供只读视图、writer、展示 provider 和宿主查询契约。入口、定义和快照在 `data.information`，DTO 在 `data.information.model`，取值接口在 `data.information.getter`，表达式在 `data.information.expression`。`EntityValueGetter<T>` 的参数 MapCodec 以 `DeferredRegister` 注册到 `SaturnRegistries.ENTITY_VALUE_GETTER`；`valueCodec()` 单独负责结果载荷，`schemaVersion()` 默认 `1`。每个查询可实现 `capture(Entity)`、`readSaved(SavedPlayerViewContext)` 和只读快照投影 `fallback(PlayerView)`。
 
-展示扩展逐行注册到 `PlayerInformation`，每行显式传 `InfomationGroup`。`collect(view, group)` 按组取，`collectAll(view)` 全取，两种入口同时保留；所有前端共享 Saturn 的注册结果。
+`data.information.PlayerViews` 采集无必填参数类型的默认查询、调用方显式请求和当前世界启用行所需的查询与依赖，按完整参数去重、隔离故障。26 个内置类型分别位于 `data.information.getter.builtin`，包括按 ID 选择属性、资源、效果及计分板目标。Saturn 只解析传入数据，不读取玩家文件、不保存归档，也不自行同步玩家信息。旧无参字段的 ID/schema/载荷格式保持；参数结果另存 `queries`，未知封套和查询定义保留。存档解析的 `NOT_CAPTURED` 不创建封套，允许宿主补充。原 Field / Contributor / SavedReader API 已移除，详见 [Getter 注册与迁移](PLAYER-VIEWS.md#注册类型化扩展)。
 
-完整签名、字段、NBT 输入、Codec、界面与验证范围见 [玩家视图与展示行](PLAYER-VIEWS.md)。
+展示扩展优先通过 `saturn:information_row` 数据定义逐行声明，类型为 `InformationRow`；`InformationGroup.rows` 通过 `Either<Holder<InformationRow>, TagKey<InformationRow>>` 引用单行或标签，可在多个组复用同一行。求值结果为 `InformationRowResult`，组元数据为 `InfomationGroup`。原有 `PlayerInformation` Java provider 保留，数据定义可覆盖同 ID Java 行。`collect(view, group)` 按组取，`collectAll(view)` 全取，两种入口同时保留。`saturn:getter` 表达式内嵌带参数 getter，复合结果可选 `path`；例如按属性 ID 查询不依赖属性列表位置。使用 `InformationContext(language, registries)` 可以显式指定当前世界定义。
+
+`register(id, group, order, importance, provider)` 可显式指定 int 重要程度，越大越重要；原四参数重载默认 `0`。结果行通过 `importance()` 读取，`document.withMinimumImportance(minimum)` 保留不低于阈值的行，沿用原显示顺序。Codec 缺少该字段时默认 `0`。
+
+完整签名、字段、NBT 输入、Codec、界面与验证范围见 [玩家视图与展示行](PLAYER-VIEWS.md)，JSON 定义和自定义 Type 见 [数据驱动信息行](INFORMATION-DATA.md)。
+
+诊断指令为 `/saturn information <target> [<group>]`，要求 gamemaster 权限，支持玩家名、UUID 或单实体选择器。省略 group 输出全部行，提供 group 则仅输出对应组；group 支持动态定义与 Java 注册组的 ID 补全。指令使用 `InformationText` 输出实际文档，仅回复执行者，返回逻辑行数。命令提示含中英文翻译键。

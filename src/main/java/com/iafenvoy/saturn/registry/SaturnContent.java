@@ -9,7 +9,7 @@ import java.util.List;
 /**
  * The built-in entries Saturn ships, one class per registry under {@code registry/content}.
  *
- * <p>Every entry there is a cell of the data-pack vocabulary a definition may name by {@code type}. A dependent mod's
+ * <p>Entries define the data-pack vocabulary and the player facts expressions can read. A dependent mod's
  * own entries are its own class over the same {@code SaturnRegistries} field; registering them beside these is enough.
  *
  * <p>What is <em>not</em> here is a rule of a world: no element, no realm, no aura, no cultivation, no item binding.
@@ -17,6 +17,8 @@ import java.util.List;
  */
 public final class SaturnContent {
     private static final List<DeferredRegister<?>> REGISTERS = List.of(
+            SaturnEntityValueGetters.REGISTRY,
+            SaturnInformationExpressions.REGISTRY,
             SaturnAbilityTypes.REGISTRY,
             SaturnTargetSelectors.REGISTRY,
             SaturnTimelineEntries.REGISTRY,

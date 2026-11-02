@@ -1,17 +1,20 @@
 package com.iafenvoy.saturn.api.playerview;
 
-import com.iafenvoy.saturn.view.model.MissingReason;
-import com.iafenvoy.saturn.view.model.ValueOrigin;
+import com.iafenvoy.saturn.data.information.getter.EntityValueGetter;
+import com.iafenvoy.saturn.data.information.model.MissingReason;
+import com.iafenvoy.saturn.data.information.model.ValueOrigin;
 
-/** A contributor's bounded writer. Values are encoded immediately instead of retaining mutable references. */
+/**
+ * Writes detached snapshot values, encoding immediately instead of retaining mutable references.
+ */
 public interface PlayerViewWriter {
-    <T> void put(PlayerViewField<T> field, T value, ValueOrigin origin);
+    <T> void put(EntityValueGetter<T> getter, T value, ValueOrigin origin);
 
-    void missing(PlayerViewField<?> field, MissingReason reason);
+    void missing(EntityValueGetter<?> getter, MissingReason reason);
 
-    boolean contains(PlayerViewField<?> field);
+    boolean contains(EntityValueGetter<?> getter);
 
-    default <T> void put(PlayerViewField<T> field, T value) {
-        this.put(field, value, ValueOrigin.CAPTURED);
+    default <T> void put(EntityValueGetter<T> getter, T value) {
+        this.put(getter, value, ValueOrigin.CAPTURED);
     }
 }

@@ -1,0 +1,80 @@
+{
+  "order": 40,
+  "importance": 30,
+  "label": {
+    "translate": "info.saturn.field.resources"
+  },
+  "value": {
+    "type": "saturn:table",
+    "source": {
+      "type": "saturn:getter",
+      "getter": {
+        "type": "saturn:resources"
+      }
+    },
+    "row_id": {
+      "type": "saturn:local",
+      "path": [
+        "id"
+      ]
+    },
+    "columns": [
+      {
+        "id": "name",
+        "label": {
+          "translate": "info.saturn.field.name"
+        },
+        "value": {
+          "type": "saturn:text",
+          "value": {
+            "type": "saturn:local",
+            "path": [
+              "id"
+            ]
+          }
+        }
+      },
+      {
+        "id": "value",
+        "label": {
+          "translate": "info.saturn.field.value"
+        },
+        "value": {
+          "type": "saturn:coalesce",
+          "values": [
+            {
+              "type": "saturn:meter",
+              "value": {
+                "type": "saturn:local",
+                "path": [
+                  "value"
+                ]
+              },
+              "min": {
+                "type": "saturn:local",
+                "path": [
+                  "min"
+                ]
+              },
+              "max": {
+                "type": "saturn:local",
+                "path": [
+                  "max"
+                ]
+              }
+            },
+            {
+              "type": "saturn:number",
+              "value": {
+                "type": "saturn:local",
+                "path": [
+                  "value"
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
