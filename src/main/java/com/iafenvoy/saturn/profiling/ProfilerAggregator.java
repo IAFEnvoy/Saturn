@@ -1,5 +1,10 @@
 package com.iafenvoy.saturn.profiling;
 
+import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
+import it.unimi.dsi.fastutil.booleans.BooleanList;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongList;
+
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -10,7 +15,6 @@ import java.util.concurrent.locks.LockSupport;
 final class ProfilerAggregator {
     private static final int QUEUE_CAPACITY = 64;
     private final long generation;
-    private final ProfilerSources sources;
     private final ConcurrentLinkedQueue<Batch> queue = new ConcurrentLinkedQueue<>();
     private final AtomicInteger pending = new AtomicInteger();
     private final AtomicLong droppedBatches = new AtomicLong();
@@ -21,9 +25,8 @@ final class ProfilerAggregator {
     private volatile boolean active = true;
     private long version;
 
-    ProfilerAggregator(long generation, ProfilerSources sources) {
+    ProfilerAggregator(long generation) {
         this.generation = generation;
-        this.sources = sources;
         this.worker = new Thread(this::run, "Saturn profiler");
         this.worker.setDaemon(true);
     }
@@ -87,7 +90,7 @@ final class ProfilerAggregator {
                     if (batch == null) break;
                     this.pending.decrementAndGet();
                     this.windows.computeIfAbsent(batch.producer(), id -> new Window(id, batch.name()))
-                            .add(batch, this.sources.size());
+                            .add(batch, ProfilerSource.count());
                     this.version++;
                 }
                 List<CompletableFuture<ProfilerWindowSnapshot>> readers;
@@ -97,7 +100,7 @@ final class ProfilerAggregator {
                     this.inFlight.addAll(readers);
                 }
                 if (!readers.isEmpty()) {
-                    List<ProfilerSource> registered = this.sources.all();
+                    List<ProfilerSource> registered = ProfilerSource.all();
                     ProfilerWindowSnapshot snapshot = this.active
                             ? new ProfilerWindowSnapshot(this.generation, this.version, registered,
                             this.windows.values().stream().map(window -> window.snapshot(registered)).toList(),
@@ -151,17 +154,18 @@ final class ProfilerAggregator {
         private ProfilerWindowSnapshot.Producer snapshot(List<ProfilerSource> sources) {
             int count = (int) Math.min(this.nextTick, Profiler.WINDOW_TICKS);
             long firstTick = this.nextTick - count;
-            long[][] samples = new long[count][];
-            boolean[] complete = new boolean[count];
+            List<LongList> samples = new ArrayList<>(count);
+            BooleanList complete = new BooleanArrayList(count);
             long discardedSpans = 0L;
             for (int index = 0; index < count; index++) {
                 long tick = firstTick + index;
                 int slot = (int) (tick % Profiler.WINDOW_TICKS);
-                if (this.ticks[slot] == tick) {
-                    samples[index] = Arrays.copyOf(this.samples[slot], sources.size() * 2);
-                    complete[index] = this.discarded[slot] == 0L;
-                    discardedSpans += this.discarded[slot];
-                } else samples[index] = new long[sources.size() * 2];
+                boolean present = this.ticks[slot] == tick;
+                samples.add(present
+                        ? new LongArrayList(Arrays.copyOf(this.samples[slot], sources.size() * 2))
+                        : new LongArrayList(sources.size() * 2));
+                complete.add(present && this.discarded[slot] == 0L);
+                if (present) discardedSpans += this.discarded[slot];
             }
             return new ProfilerWindowSnapshot.Producer(this.producer, this.name, firstTick, sources, samples, complete, discardedSpans);
         }

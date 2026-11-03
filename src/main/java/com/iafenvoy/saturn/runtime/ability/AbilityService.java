@@ -19,6 +19,7 @@ import com.iafenvoy.saturn.profiling.LoggingLevel;
 import com.iafenvoy.saturn.profiling.ProfilerScope;
 import com.iafenvoy.saturn.profiling.ServerProfiling;
 import com.iafenvoy.saturn.registry.SaturnAttachments;
+import com.iafenvoy.saturn.registry.SaturnProfilerSources;
 import com.iafenvoy.saturn.runtime.resulting.Failure;
 import com.iafenvoy.saturn.runtime.resulting.Failures;
 import com.iafenvoy.saturn.runtime.resulting.Result;
@@ -121,7 +122,7 @@ public final class AbilityService {
     public static Result<UseData> useCarried(Holder<Ability> ability, Entity actor,
                                              AbilityAttachment abilities, ResourceHolderAttachment resources, long gameTime,
                                              FormulaContext context, @Nullable Vec3 origin) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.ABILITY_CAST)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.ABILITY_CAST)) {
             return use(ability, actor, abilities, resources, gameTime, context, false, origin);
         }
     }
@@ -182,7 +183,7 @@ public final class AbilityService {
     public static Result<UseData> finishCast(Holder<Ability> ability, Entity actor,
                                              AbilityAttachment abilities, ResourceHolderAttachment resources, long gameTime,
                                              FormulaContext context) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.ABILITY_CAST)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.ABILITY_CAST)) {
             if (actor.level().isClientSide()) return Result.failure(Failures.SERVER_ONLY);
             Ability definition = ability.value();
             if (actor instanceof LivingEntity living) {
@@ -272,7 +273,7 @@ public final class AbilityService {
     public static Result<ChannelData> tickChannel(Holder<Ability> ability, Entity actor,
                                                   AbilityAttachment abilities, ResourceHolderAttachment resources, long gameTime,
                                                   FormulaContext context) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.ABILITY_CHANNEL)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.ABILITY_CHANNEL)) {
             Ability definition = ability.value();
             if (actor instanceof LivingEntity living) {
                 context = withAbilityScaling(living, ability, FormulaContexts.forEntity(living, context));

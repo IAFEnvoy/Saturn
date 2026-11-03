@@ -2,10 +2,7 @@ package com.iafenvoy.saturn;
 
 import com.iafenvoy.saturn.config.SaturnConfig;
 import com.iafenvoy.saturn.gametest.InformationTests;
-import com.iafenvoy.saturn.registry.SaturnAttachments;
-import com.iafenvoy.saturn.registry.SaturnContent;
-import com.iafenvoy.saturn.registry.SaturnLootRegistries;
-import com.iafenvoy.saturn.registry.SaturnOpenScreenData;
+import com.iafenvoy.saturn.registry.*;
 import com.iafenvoy.saturn.registry.cache.RegistryCaches;
 import com.mojang.logging.LogUtils;
 import net.neoforged.bus.api.IEventBus;
@@ -33,6 +30,8 @@ public final class Saturn {
         SaturnLootRegistries.CONDITIONS.register(bus);
         SaturnLootRegistries.FUNCTIONS.register(bus);
         SaturnOpenScreenData.REGISTRY.register(bus);
+        // Claims the profiler buckets now, so the register event can put them into the synced registry.
+        SaturnProfilerSources.init();
 
         InformationTests.register(bus);
     }

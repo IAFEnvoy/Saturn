@@ -4,6 +4,7 @@ import com.iafenvoy.saturn.data.trigger.TriggerPayload;
 import com.iafenvoy.saturn.data.trigger.TriggerSignals;
 import com.iafenvoy.saturn.profiling.ProfilerScope;
 import com.iafenvoy.saturn.profiling.ServerProfiling;
+import com.iafenvoy.saturn.registry.SaturnProfilerSources;
 import com.iafenvoy.saturn.util.formula.FormulaContext;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
@@ -48,7 +49,7 @@ public final class VanillaTriggerPollBridge {
 
     @SubscribeEvent
     public static void onPlayerTick(Post event) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.TRIGGER)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.TRIGGER)) {
             if (!(event.getEntity() instanceof ServerPlayer player)) return;
             boolean enterBlock = TriggerDispatcher.hasListener(TriggerSignals.ENTER_BLOCK);
             boolean location = TriggerDispatcher.hasListener(TriggerSignals.LOCATION);

@@ -7,6 +7,7 @@ import com.iafenvoy.saturn.event.CollectAbilityGrantsEvent;
 import com.iafenvoy.saturn.profiling.ProfilerScope;
 import com.iafenvoy.saturn.profiling.ServerProfiling;
 import com.iafenvoy.saturn.registry.SaturnAttachments;
+import com.iafenvoy.saturn.registry.SaturnProfilerSources;
 import com.iafenvoy.saturn.runtime.Sources;
 import net.minecraft.core.Holder;
 import net.minecraft.resources.Identifier;
@@ -28,7 +29,7 @@ public final class AbilityGrantService {
     }
 
     public static Result recalculate(LivingEntity entity) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.ABILITY_RECONCILE)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.ABILITY_RECONCILE)) {
             // Grants are state, so only the server rebuilds them; a client reads what it was sent.
             if (entity.level().isClientSide()) return new Result(0, 0);
             SetMultimap<Identifier, Holder<Ability>> desired = NeoForge.EVENT_BUS.post(new CollectAbilityGrantsEvent(entity)).getDesired();

@@ -12,7 +12,6 @@ Saturn 当前 **547** 个 Java 文件，其中 498 个在 MiXianTu 有同名来�
 | `com/iafenvoy/saturn/api/AliasManager` | —（Saturn 新写） |
 | `com/iafenvoy/saturn/api/ItemUseCycle` | `src/main/java/com/iafenvoy/mxt/api/ItemUseCycle.java` |
 | `com/iafenvoy/saturn/api/package-info` | `src/main/java/com/iafenvoy/mxt/api/package-info.java` |
-| `com/iafenvoy/saturn/api/PlayerNameQuery` | —（Saturn 新写） |
 | `com/iafenvoy/saturn/attachment/AbilityAttachment` | `src/main/java/com/iafenvoy/mxt/attachment/AbilityAttachment.java` |
 | `com/iafenvoy/saturn/attachment/ResourceHolderAttachment` | `src/main/java/com/iafenvoy/mxt/attachment/ResourceHolderAttachment.java` |
 | `com/iafenvoy/saturn/attachment/TriggerCooldownAttachment` | `src/main/java/com/iafenvoy/mxt/attachment/TriggerCooldownAttachment.java` |
@@ -387,7 +386,6 @@ Saturn 当前 **547** 个 Java 文件，其中 498 个在 MiXianTu 有同名来�
 | `com/iafenvoy/saturn/profiling/ProfilerFrame` | —（Saturn 新写） |
 | `com/iafenvoy/saturn/profiling/ProfilerScope` | —（Saturn 新写） |
 | `com/iafenvoy/saturn/profiling/ProfilerSource` | —（Saturn 新写） |
-| `com/iafenvoy/saturn/profiling/ProfilerSources` | —（Saturn 新写） |
 | `com/iafenvoy/saturn/profiling/ProfilerWindowSnapshot` | —（Saturn 新写） |
 | `com/iafenvoy/saturn/profiling/ServerProfiling` | —（Saturn 新写） |
 | `com/iafenvoy/saturn/registry/cache/ChainCache` | `src/main/java/com/iafenvoy/mxt/registry/cache/ChainCache.java` |
@@ -427,6 +425,7 @@ Saturn 当前 **547** 个 Java 文件，其中 498 个在 MiXianTu 有同名来�
 | `com/iafenvoy/saturn/registry/SaturnDatapackRegistries` | `src/main/java/com/iafenvoy/mxt/registry/MxtDatapackRegistries.java` |
 | `com/iafenvoy/saturn/registry/SaturnKeyMappings` | `src/main/java/com/iafenvoy/mxt/registry/MxtKeyMappings.java` |
 | `com/iafenvoy/saturn/registry/SaturnLootRegistries` | —（Saturn 新写） |
+| `com/iafenvoy/saturn/registry/SaturnProfilerSources` | —（Saturn 新写） |
 | `com/iafenvoy/saturn/registry/SaturnRegistries` | `src/main/java/com/iafenvoy/mxt/registry/MxtRegistries.java` |
 | `com/iafenvoy/saturn/registry/SaturnResourceKeys` | `src/main/java/com/iafenvoy/mxt/registry/MxtResourceKeys.java` |
 | `com/iafenvoy/saturn/render/IconRenderer` | `src/main/java/com/iafenvoy/mxt/render/IconRenderer.java` |

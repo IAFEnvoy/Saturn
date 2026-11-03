@@ -6,6 +6,7 @@ import com.iafenvoy.saturn.profiling.LoggerDispatcher;
 import com.iafenvoy.saturn.profiling.LoggingLevel;
 import com.iafenvoy.saturn.profiling.ProfilerScope;
 import com.iafenvoy.saturn.profiling.ServerProfiling;
+import com.iafenvoy.saturn.registry.SaturnProfilerSources;
 import com.iafenvoy.saturn.registry.cache.RegistryCaches;
 import com.iafenvoy.saturn.runtime.trigger.TriggerSubscription.State;
 import com.mojang.logging.LogUtils;
@@ -38,7 +39,7 @@ public final class TriggerDispatcher {
     }
 
     public static void register(TriggerSubscription subscription) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.TRIGGER)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.TRIGGER)) {
             String key = ownerKey(subscription);
             TriggerSubscription previous = BY_OWNER.computeIfAbsent(subscription.owner(), ignored -> new LinkedHashMap<>())
                     .put(key, subscription);
@@ -56,7 +57,7 @@ public final class TriggerDispatcher {
     }
 
     public static void unregister(UUID owner, String module, String identity) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.TRIGGER)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.TRIGGER)) {
             LinkedHashMap<String, TriggerSubscription> values = BY_OWNER.get(owner);
             if (values == null) return;
             TriggerSubscription removed = values.remove(module + ":" + identity);
@@ -66,7 +67,7 @@ public final class TriggerDispatcher {
     }
 
     public static void clearModule(UUID owner, String module) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.TRIGGER)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.TRIGGER)) {
             LinkedHashMap<String, TriggerSubscription> values = BY_OWNER.get(owner);
             if (values == null) return;
             String prefix = module + ":";
@@ -80,7 +81,7 @@ public final class TriggerDispatcher {
     }
 
     public static void clearOwner(UUID owner) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.TRIGGER)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.TRIGGER)) {
             LinkedHashMap<String, TriggerSubscription> values = BY_OWNER.remove(owner);
             if (values != null) values.values().forEach(TriggerDispatcher::removeSignal);
         }
@@ -143,7 +144,7 @@ public final class TriggerDispatcher {
     }
 
     public static void publish(TriggerSignal signal) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.TRIGGER)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.TRIGGER)) {
             if (signal.context().level() != null && signal.context().level().isClientSide()) return;
             Entity actor = signal.context().actor();
             // Automation and command plumbing drive fake players. They have no session to act with, so they do
@@ -161,7 +162,7 @@ public final class TriggerDispatcher {
 
     // For signals whose context has no actor; publish(...) derives the owner from the actor instead.
     public static void publishTo(UUID owner, TriggerSignal signal) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.TRIGGER)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.TRIGGER)) {
             if (signal.context().level() != null && signal.context().level().isClientSide()) return;
             LinkedHashMap<UUID, LinkedHashMap<String, TriggerSubscription>> byOwner = BY_SIGNAL.get(signal.type());
             LinkedHashMap<String, TriggerSubscription> values = byOwner == null ? null : byOwner.get(owner);
@@ -207,13 +208,13 @@ public final class TriggerDispatcher {
     }
 
     public static void publish(Identifier type, TriggerContext context, long gameTime) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.TRIGGER)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.TRIGGER)) {
             publish(new TriggerSignal(type, context, null, gameTime));
         }
     }
 
     public static void publishTo(UUID owner, Identifier type, TriggerContext context, long gameTime) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.TRIGGER)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.TRIGGER)) {
             publishTo(owner, new TriggerSignal(type, context, null, gameTime));
         }
     }

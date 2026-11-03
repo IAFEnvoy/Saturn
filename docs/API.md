@@ -48,6 +48,8 @@
 | `ITEM_MATCHER_ENTRY_TYPE` | `item` |
 | `TIMELINE_ENTRY_TYPE` | `idle` |
 
+非默认条目的代码注册表是 `OPEN_SCREEN_DATA`（界面打开请求的数据类型）与 `PROFILER_SOURCE`（采样桶）；两者都同步，后者的条目是 `ProfilerSource`，数值 id 就是它在采样数组里的列。
+
 ```java
 public static final DeferredRegister<MapCodec<? extends EntityAction>> ACTIONS =
         DeferredRegister.create(SaturnRegistries.ENTITY_ACTION_TYPE, MyMod.MODID);
@@ -196,7 +198,7 @@ Saturn 自带完整的技能与触发器运行时，内容侧只提供规则与�
 - `util/{CloseableResources,ClientRenderResources}`：可关闭资源的槽位（关卡卸载、停机时释放）；`ClientLevelAccess` 是客户端注册表的访问口。
 - `util/InventoryUtil`：精确堆叠的原子挪进/挪出；`util/TooltipText`：tooltip 的数值、正负号与分隔符（`tooltip.saturn.separator`）。
 - `data/DescribedEntry`：`值 + 可选 description` 的 codec 包装（`codec(valueCodec, key)`），任意 `T` 可用。
-- `util/{PlayerNames,ClientPlayerNames}`：按 UUID 解析名字——先问服务端已知的（在线列表、名字缓存），客户端再问当前连接；客户端要问服务端时走 `api/PlayerNameQuery`（Saturn 不提供名字查询网络包）。
+- `util/{PlayerNames,ClientPlayerNames}`：按 UUID 解析名字——服务端问在线列表与名字缓存，客户端只答当前连接列出的玩家；不发网络查询，名字要在写入时记下来（`displayName`）。
 - 战利品条目：`saturn:has_ability`（条件：这个实体持不持有某个技能）与 `saturn:grant_ability`（函数：授予，默认来源 `saturn:loot`），只读 `saturn:ability` 与能力附件。
 ---
 
@@ -236,7 +238,7 @@ public MyMod(IEventBus bus) {
 | 灵气 / 池 / 银行 | 不在 Saturn；`Cost` + `CostTarget` + `CostContext.with(...)` 是你的通道。 |
 | 品质（quality） | `quality` 匹配条目与 `QualityRequirement` 都不在 Saturn。 |
 | 物品侧存储 | `DataStorageHolder` 只挂在 `AbilityAttachment` 上，没有物品组件。 |
-| profiler 界面与网络 | 只有 `/saturn profiler`；要图形界面自己读 `ServerProfiling.snapshot`。 |
+| profiler 界面与网络 | 只有 `/saturn profiler`；要图形界面自己读 `ServerProfiling.snapshot`，`ProfilerFrame` 自带 `CODEC` 与 `STREAM_CODEC`，放进你自己的包即可。 |
 | 玩家视图测试 | 已有独立核心检查和 main 源码集的信息行 GameTest；其他系统不在其验证范围。 |
 | 内置数据包定义 | 已包含信息行/Group JSON；玩法资源和技能定义由内容模组提供。 |
 

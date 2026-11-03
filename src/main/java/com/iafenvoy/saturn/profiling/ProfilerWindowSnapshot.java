@@ -1,15 +1,43 @@
 package com.iafenvoy.saturn.profiling;
 
-import java.util.ArrayList;
+import com.iafenvoy.saturn.registry.SaturnRegistries;
+import com.iafenvoy.saturn.registry.SaturnResourceKeys;
+import com.iafenvoy.saturn.util.codec.CollectionCodecs;
+import com.iafenvoy.saturn.util.codec.MiscStreamCodecs;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import it.unimi.dsi.fastutil.booleans.BooleanList;
+import it.unimi.dsi.fastutil.longs.LongList;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+
 import java.util.Arrays;
 import java.util.List;
 
-// Instances own their arrays; accessors expose scalar values and immutable metadata only.
+// Instances own their lists; accessors expose scalar values and immutable metadata only.
 public record ProfilerWindowSnapshot(long generation, long version, List<ProfilerSource> sources,
                                      List<Producer> producers, long droppedBatches) {
+    public static final int MAX_PRODUCERS = 4;
     public static final ProfilerWindowSnapshot EMPTY = new ProfilerWindowSnapshot(0L, 0L, List.of(), List.of(), 0L);
+    public static final Codec<ProfilerWindowSnapshot> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+            Codec.LONG.fieldOf("generation").forGetter(ProfilerWindowSnapshot::generation),
+            Codec.LONG.fieldOf("version").forGetter(ProfilerWindowSnapshot::version),
+            SaturnRegistries.PROFILER_SOURCE.byNameCodec().sizeLimitedListOf(ProfilerSource.MAX_SOURCES).fieldOf("sources").forGetter(ProfilerWindowSnapshot::sources),
+            Producer.CODEC.sizeLimitedListOf(MAX_PRODUCERS).fieldOf("producers").forGetter(ProfilerWindowSnapshot::producers),
+            Codec.LONG.fieldOf("dropped_batches").forGetter(ProfilerWindowSnapshot::droppedBatches)
+    ).apply(instance, ProfilerWindowSnapshot::new));
+    public static final StreamCodec<RegistryFriendlyByteBuf, ProfilerWindowSnapshot> STREAM_CODEC = StreamCodec.composite(
+            ByteBufCodecs.VAR_LONG, ProfilerWindowSnapshot::generation,
+            ByteBufCodecs.VAR_LONG, ProfilerWindowSnapshot::version,
+            ByteBufCodecs.registry(SaturnResourceKeys.PROFILER_SOURCE).apply(ByteBufCodecs.list(ProfilerSource.MAX_SOURCES)), ProfilerWindowSnapshot::sources,
+            Producer.STREAM_CODEC.apply(ByteBufCodecs.list(MAX_PRODUCERS)), ProfilerWindowSnapshot::producers,
+            ByteBufCodecs.VAR_LONG, ProfilerWindowSnapshot::droppedBatches,
+            ProfilerWindowSnapshot::new);
 
     public ProfilerWindowSnapshot(long generation, long version, List<ProfilerSource> sources, List<Producer> producers, long droppedBatches) {
+        if (sources.stream().distinct().count() != sources.size())
+            throw new IllegalArgumentException("Duplicate profiler source");
         this.generation = generation;
         this.version = version;
         this.sources = List.copyOf(sources);
@@ -17,48 +45,53 @@ public record ProfilerWindowSnapshot(long generation, long version, List<Profile
         this.droppedBatches = droppedBatches;
     }
 
-    // Copy external arrays at the boundary; decoded snapshots obey the same ownership as consumer snapshots.
-    public static ProfilerWindowSnapshot restore(long generation, long version, long droppedBatches, List<String> ids, List<ProducerData> data) {
-        if (generation < 0 || version < 0 || droppedBatches < 0 || ids.stream().distinct().count() != ids.size())
-            throw new IllegalArgumentException("Invalid profiler metadata");
-        ProfilerSources registry = new ProfilerSources();
-        List<ProfilerSource> sources = ids.stream().map(registry::register).toList();
-        List<Producer> producers = new ArrayList<>();
-        for (ProducerData item : data) {
-            if (item.firstTick < 0 || item.discardedSpans < 0 || item.samples.length > Profiler.WINDOW_TICKS
-                    || item.samples.length != item.complete.length)
+    public record Producer(long id, String name, long firstTick, List<ProfilerSource> sources, List<LongList> samples,
+                           BooleanList complete, long discardedSpans) {
+        private static final int MAX_COLUMNS = ProfilerSource.MAX_SOURCES * 2;
+        public static final Codec<Producer> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                Codec.LONG.fieldOf("id").forGetter(Producer::id),
+                Codec.STRING.fieldOf("name").forGetter(Producer::name),
+                Codec.LONG.fieldOf("first_tick").forGetter(Producer::firstTick),
+                SaturnRegistries.PROFILER_SOURCE.byNameCodec().sizeLimitedListOf(ProfilerSource.MAX_SOURCES).fieldOf("sources").forGetter(Producer::sources),
+                CollectionCodecs.longMatrix(Profiler.WINDOW_TICKS, MAX_COLUMNS).fieldOf("samples").forGetter(Producer::samples),
+                CollectionCodecs.booleans(Profiler.WINDOW_TICKS).fieldOf("complete").forGetter(Producer::complete),
+                Codec.LONG.fieldOf("discarded_spans").forGetter(Producer::discardedSpans)
+        ).apply(instance, Producer::new));
+        public static final StreamCodec<RegistryFriendlyByteBuf, Producer> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_LONG, Producer::id,
+                ByteBufCodecs.STRING_UTF8, Producer::name,
+                ByteBufCodecs.VAR_LONG, Producer::firstTick,
+                ByteBufCodecs.registry(SaturnResourceKeys.PROFILER_SOURCE).apply(ByteBufCodecs.list(ProfilerSource.MAX_SOURCES)), Producer::sources,
+                MiscStreamCodecs.longMatrix(Profiler.WINDOW_TICKS, MAX_COLUMNS), Producer::samples,
+                MiscStreamCodecs.booleans(Profiler.WINDOW_TICKS), Producer::complete,
+                ByteBufCodecs.VAR_LONG, Producer::discardedSpans,
+                Producer::new);
+
+        // The rows arrive from a decoder as well as from the aggregator, so the shape a reader relies on is checked
+        // once here instead of at every access.
+        public Producer {
+            samples = List.copyOf(samples);
+            if (samples.size() != complete.size() || samples.size() > Profiler.WINDOW_TICKS)
                 throw new IllegalArgumentException("Invalid profiler window");
-            long[][] samples = new long[item.samples.length][];
-            for (int tick = 0; tick < samples.length; tick++) {
-                if (item.samples[tick].length != sources.size() * 2 || Arrays.stream(item.samples[tick]).anyMatch(value -> value < 0L))
+            for (LongList row : samples)
+                if (row.size() != sources.size() * 2 || row.longStream().anyMatch(value -> value < 0L))
                     throw new IllegalArgumentException("Invalid profiler samples");
-                samples[tick] = item.samples[tick].clone();
-            }
-            producers.add(new Producer(item.id, item.name, item.firstTick, sources, samples, item.complete.clone(), item.discardedSpans));
         }
-        return new ProfilerWindowSnapshot(generation, version, sources, producers, droppedBatches);
-    }
 
-    public record ProducerData(long id, String name, long firstTick, long[][] samples, boolean[] complete,
-                               long discardedSpans) {
-    }
-
-    public record Producer(long id, String name, long firstTick, List<ProfilerSource> sources, long[][] samples,
-                           boolean[] complete, long discardedSpans) {
         public int sampleCount() {
-            return this.samples.length;
+            return this.samples.size();
         }
 
         public boolean complete(int sample) {
-            return this.complete[sample];
+            return this.complete.getBoolean(sample);
         }
 
         public long nanos(int sample, ProfilerSource source) {
-            return this.samples[sample][this.index(source) * 2];
+            return this.samples.get(sample).getLong(this.index(source) * 2);
         }
 
         public long hits(int sample, ProfilerSource source) {
-            return this.samples[sample][this.index(source) * 2 + 1];
+            return this.samples.get(sample).getLong(this.index(source) * 2 + 1);
         }
 
         public Summary summary(ProfilerSource source) {
@@ -70,22 +103,23 @@ public record ProfilerWindowSnapshot(long generation, long version, List<Profile
             long min = Long.MAX_VALUE, max = 0L;
             long hits = 0L;
             double total = 0D;
-            for (int index = 0; index < this.samples.length; index++) {
-                if (!this.complete[index]) continue;
-                long value = this.samples[index][offset];
+            for (int index = 0; index < this.samples.size(); index++) {
+                if (!this.complete.getBoolean(index)) continue;
+                LongList row = this.samples.get(index);
+                long value = row.getLong(offset);
                 if (values != null) values[count] = value;
                 count++;
                 min = Math.min(min, value);
                 max = Math.max(max, value);
                 total += value;
-                hits += this.samples[index][offset + 1];
+                hits += row.getLong(offset + 1);
             }
             return new Summary(count, count == 0 ? 0L : min, count == 0 ? 0D : total / count, max, hits);
         }
 
         // Include idle zero ticks; exclude missing or partial ticks. Percentiles use nearest ranks.
         public Statistics statistics(ProfilerSource source) {
-            long[] values = new long[this.samples.length];
+            long[] values = new long[this.samples.size()];
             Summary summary = this.summarize(this.index(source) * 2, values);
             int count = summary.samples;
             if (count == 0) return new Statistics(0, 0L, 0D, 0L, 0L, 0L, 0L, 0L);

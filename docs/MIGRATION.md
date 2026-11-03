@@ -93,7 +93,7 @@ Saturn 是**纯代码库**：没有任何内置定义（JSON）、没有测试�
 | `data/ability/Ability.java` | 去掉元素亲和；JSON 少两个字段 |
 | `util/formula/variable/EntityVariable.java` | 去掉元素分支 |
 | `registry/cache/RegistryCaches.java` | 只剩 `ATTRIBUTE_NAMES` / `RESOURCE_NAMES` |
-| `util/profiling/ServerProfiling.java` | `Source` 从枚举改成可注册桶（`register` / `all` / `byPath`），session 用注册序号；删订阅扇出与网络 |
+| `util/profiling/ServerProfiling.java` | `Source` 改成注册表条目 `ProfilerSource`（`register` / `all` / `byPath`），编号来自同步的 `saturn:profiler_source`；删订阅扇出与网络 |
 | `screen/resourcebar/ResourceBarOverlay.java` | 只收 `saturn:resource` 的条 |
 | `runtime/resource/ResourceTransactions.java` | 去掉 aura 使用门 |
 | `screen/hud/HudLayoutFile.java` | 落盘 `config/saturn/hud.json` |
@@ -110,7 +110,7 @@ Saturn 是**纯代码库**：没有任何内置定义（JSON）、没有测试�
 | `registry/cache/RegistryCaches.java` | 加 `TRIGGER_RULES_BY_SIGNAL`（`saturn:trigger` 的索引） |
 | `registry/SaturnAttachments.java` | 加 `TRIGGER_COOLDOWNS`（服务端专用） |
 | `runtime/resulting/failures/AbilityFailure.java` | 去掉 `ELEMENT_AFFINITY` |
-| `util/ClientPlayerNames.java` | 问服务端改成 `api/PlayerNameQuery` 钩子（Saturn 没有网络包） |
+| `util/ClientPlayerNames.java` | 只答当前连接列出的玩家；原来问服务端的那半已移除（Saturn 没有名字查询网络包） |
 | `util/InventoryUtil.java` | Javadoc 去掉内容侧的引用 |
 | `registry/SaturnContent.java` | 只剩汇总表：每个注册表的内置条目拆到 `registry/content/*`（23 个类），主类构造时统一注册；内置条目从 47 条扩到 288 条 |
 
@@ -118,7 +118,7 @@ Saturn 是**纯代码库**：没有任何内置定义（JSON）、没有测试�
 
 `Saturn`（主类）、`registry/content/*`（每个注册表一个内置条目类，`SaturnContent` 是汇总表）、`registry/SaturnKeyMappings`（HUD 编辑键位与 `KeyMappingHolder`）、`command/SaturnCommands` + `SaturnDebugCommand` + `SaturnAbilityCommand` + `SaturnTriggersCommand` + `SaturnResourceCommand` + `command/client/{SaturnClientCommands,SaturnHudCommand}`、`compat/kubejs/{SaturnKubeJsPlugin,SaturnKubeJsApi}`、`api/AbilityHooks`、`runtime/ability/*`、`runtime/trigger/*`、`event/*`；资源 `assets/saturn/textures/gui/incomplete.png`、`assets/saturn/lang/*.json`、`kubejs.plugins.txt`。
 
-本轮新增的通用件：`api/PlayerNameQuery`（名字查询钩子）、`loot/{HasAbilityLootCondition,GrantAbilityLootFunction}` + `registry/SaturnLootRegistries`（`saturn:has_ability` / `saturn:grant_ability`）、`util/dispatcher/{TickDispatcher,TickInterval,TickExecutionLimit}`、`util/{CloseableResources,ClientRenderResources,ClientLevelAccess,InventoryUtil,TooltipText,PlayerNames,ClientPlayerNames}`、`data/DescribedEntry`、`api/ItemUseCycle` + `event/ResolveItemUseCycleEvent`（通用长按手势，`mixin/ItemUseCycleMixin` 由 `saturn.mixins.json` 登记）、`runtime/hold/{ItemUseCycles,ItemUseCyclesClient}`、`advancement/IdentifierCriterionTrigger`（按 id 的准则）、`api/AliasManager` + `registry/SaturnAliases`（旧 id 映射）、`SaturnClient`（客户端初始化：注册四个资源条 HUD 元素）。
+本轮新增的通用件：`loot/{HasAbilityLootCondition,GrantAbilityLootFunction}` + `registry/SaturnLootRegistries`（`saturn:has_ability` / `saturn:grant_ability`）、`util/dispatcher/{TickDispatcher,TickInterval,TickExecutionLimit}`、`util/{CloseableResources,ClientRenderResources,ClientLevelAccess,InventoryUtil,TooltipText,PlayerNames,ClientPlayerNames}`、`data/DescribedEntry`、`api/ItemUseCycle` + `event/ResolveItemUseCycleEvent`（通用长按手势，`mixin/ItemUseCycleMixin` 由 `saturn.mixins.json` 登记）、`runtime/hold/{ItemUseCycles,ItemUseCyclesClient}`、`advancement/IdentifierCriterionTrigger`（按 id 的准则）、`api/AliasManager` + `registry/SaturnAliases`（旧 id 映射）、`SaturnClient`（客户端初始化：注册四个资源条 HUD 元素）。
 
 ---
 

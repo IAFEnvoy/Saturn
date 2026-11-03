@@ -20,6 +20,7 @@ import com.iafenvoy.saturn.profiling.ProfilerScope;
 import com.iafenvoy.saturn.profiling.ServerProfiling;
 import com.iafenvoy.saturn.registry.SaturnAttachments;
 import com.iafenvoy.saturn.registry.SaturnDatapackRegistries;
+import com.iafenvoy.saturn.registry.SaturnProfilerSources;
 import com.iafenvoy.saturn.registry.SaturnResourceKeys;
 import com.iafenvoy.saturn.runtime.EntityTickStages;
 import com.iafenvoy.saturn.runtime.Sources;
@@ -97,13 +98,13 @@ public final class AbilityEventBridge {
     // HUD resources are part of the player's visible baseline state, so they are created on the first tick rather
     // than the first time something spends one.
     private static void tickResources(LivingEntity entity) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.RESOURCE)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.RESOURCE)) {
             initializeHudResources(entity, entity.getData(SaturnAttachments.RESOURCE_HOLDER));
         }
     }
 
     private static void tickSignals(LivingEntity entity) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.TRIGGER)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.TRIGGER)) {
             dispatch(TriggerSignals.TICK, entity, FormulaContext.of(entity));
         }
     }
@@ -111,7 +112,7 @@ public final class AbilityEventBridge {
     // Curios is reconciled on a slow cadence, so the index has to follow it here: it is no longer rebuilt as a side
     // effect of the next publication.
     private static void tickCurios(LivingEntity entity) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.ABILITY_RECONCILE)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.ABILITY_RECONCILE)) {
             if (entity.level().getGameTime() % 20L != 0L) return;
             if (syncCuriosAbilities(entity, entity.getData(SaturnAttachments.ABILITY_HOLDER)))
                 rebuildTriggerSubscriptions(entity);
@@ -119,21 +120,21 @@ public final class AbilityEventBridge {
     }
 
     private static void tickLifecycle(LivingEntity entity) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.ABILITY)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.ABILITY)) {
             tickAbilities(entity, entity.getData(SaturnAttachments.ABILITY_HOLDER),
                     entity.getData(SaturnAttachments.RESOURCE_HOLDER), entity.level().getGameTime());
         }
     }
 
     private static void tickCasts(LivingEntity entity) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.ABILITY_CAST)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.ABILITY_CAST)) {
             finishDueCasts(entity, entity.getData(SaturnAttachments.ABILITY_HOLDER),
                     entity.getData(SaturnAttachments.RESOURCE_HOLDER), entity.level().getGameTime());
         }
     }
 
     private static void tickChannel(LivingEntity entity) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.ABILITY_CHANNEL)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.ABILITY_CHANNEL)) {
             AbilityAttachment abilities = entity.getData(SaturnAttachments.ABILITY_HOLDER);
             abilities.channelledAbility().ifPresent(ability -> AbilityService.tickChannel(ability, entity, abilities,
                     entity.getData(SaturnAttachments.RESOURCE_HOLDER), entity.level().getGameTime(), FormulaContext.of(entity)));
@@ -304,7 +305,7 @@ public final class AbilityEventBridge {
 
     // Intentionally idempotent, and can be called after datapack reloads or source reconciliation.
     public static void rebuildTriggerSubscriptions(LivingEntity entity) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.ABILITY_RECONCILE)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.ABILITY_RECONCILE)) {
             if (entity.level().isClientSide()) return;
             syncAbilitySubscriptions(entity);
         }

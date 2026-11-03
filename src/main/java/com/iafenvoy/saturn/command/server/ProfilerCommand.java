@@ -4,7 +4,6 @@ import com.iafenvoy.saturn.profiling.Profiler;
 import com.iafenvoy.saturn.profiling.ProfilerSource;
 import com.iafenvoy.saturn.profiling.ProfilerWindowSnapshot;
 import com.iafenvoy.saturn.profiling.ServerProfiling;
-import com.iafenvoy.saturn.profiling.ServerProfiling.Source;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.minecraft.ChatFormatting;
@@ -40,7 +39,7 @@ public final class ProfilerCommand {
                         .suggests((_, builder) -> {
                             String remaining = builder.getRemaining();
                             int offset = remaining.lastIndexOf(' ') + 1;
-                            return SharedSuggestionProvider.suggest(Source.all().stream().map(Source::path),
+                            return SharedSuggestionProvider.suggest(ProfilerSource.all().stream().map(ProfilerSource::path),
                                     builder.createOffset(builder.getStart() + offset));
                         })
                         .executes(ctx -> status(ctx.getSource(), StringArgumentType.getString(ctx, "sources"))));
@@ -64,10 +63,10 @@ public final class ProfilerCommand {
     }
 
     private static int status(CommandSourceStack source, String arguments) {
-        LinkedHashSet<Source> selected = new LinkedHashSet<>();
-        if (arguments.isBlank()) selected.addAll(Source.all());
+        LinkedHashSet<ProfilerSource> selected = new LinkedHashSet<>();
+        if (arguments.isBlank()) selected.addAll(ProfilerSource.all());
         else for (String id : arguments.strip().split("\\s+")) {
-            Source match = Source.byPath(id);
+            ProfilerSource match = ProfilerSource.byPath(id);
             if (match == null) {
                 source.sendFailure(Component.translatable("command.saturn.profiler.unknown_source", id));
                 return 0;
@@ -78,13 +77,13 @@ public final class ProfilerCommand {
             source.sendFailure(Component.translatable("command.saturn.profiler.disabled"));
             return 0;
         }
-        List<Source> sources = List.copyOf(selected);
+        List<ProfilerSource> sources = List.copyOf(selected);
         ServerProfiling.snapshot(source.getServer()).thenAccept(snapshot ->
                 source.getServer().execute(() -> show(source, sources, snapshot)));
         return sources.size();
     }
 
-    private static void show(CommandSourceStack source, List<Source> selected, ProfilerWindowSnapshot snapshot) {
+    private static void show(CommandSourceStack source, List<ProfilerSource> selected, ProfilerWindowSnapshot snapshot) {
         if (!mayView(source)) return;
         if (snapshot.producers().isEmpty()) {
             source.sendSuccess(() -> Component.translatable("command.saturn.profiler.no_data"), false);
@@ -94,7 +93,7 @@ public final class ProfilerCommand {
         for (ProfilerWindowSnapshot.Producer producer : snapshot.producers()) {
             source.sendSuccess(() -> Component.translatable("command.saturn.profiler.producer", producer.name(), number(producer.sampleCount()),
                     discarded(producer.discardedSpans())), false);
-            for (Source selectedSource : selected) {
+            for (ProfilerSource selectedSource : selected) {
                 ProfilerSource registered = snapshot.sources().stream()
                         .filter(value -> value.id().equals(selectedSource.id())).findFirst().orElse(null);
                 if (registered == null) continue;

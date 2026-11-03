@@ -28,8 +28,8 @@ public final class PlayerNames {
         return value.isBlank() ? Optional.empty() : Optional.of(value);
     }
 
-    // The player list and the persisted name cache answer on a server; a client on a remote server has neither
-    // and asks the server once (see {@link ClientPlayerNames}). Empty means nobody could answer.
+    // The player list and the persisted name cache answer on a server; a client has only the players its connection
+    // lists. Empty means this side cannot name that id.
     public static Optional<String> resolve(String ownerUuid) {
         UUID id = parse(ownerUuid);
         if (id == null) return Optional.empty();

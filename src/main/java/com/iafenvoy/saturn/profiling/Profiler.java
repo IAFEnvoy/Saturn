@@ -14,7 +14,6 @@ public final class Profiler implements AutoCloseable {
     private static final ProfilerScope NOOP = () -> {
     };
 
-    private final ProfilerSources sources = new ProfilerSources();
     private final AtomicLong nextProducer = new AtomicLong();
     private final ThreadLocal<State> states = new ThreadLocal<>();
     private final LongSupplier clock;
@@ -30,10 +29,6 @@ public final class Profiler implements AutoCloseable {
         this.clock = Objects.requireNonNull(clock);
     }
 
-    public ProfilerSources sources() {
-        return this.sources;
-    }
-
     public boolean enabled() {
         ProfilerAggregator current = this.session;
         return current != null && current.active();
@@ -46,7 +41,7 @@ public final class Profiler implements AutoCloseable {
         this.session = null;
         if (previous != null) previous.stop();
         if (enabled) {
-            ProfilerAggregator current = new ProfilerAggregator(++this.generation, this.sources);
+            ProfilerAggregator current = new ProfilerAggregator(++this.generation);
             this.session = current;
             current.start();
         }
@@ -56,8 +51,8 @@ public final class Profiler implements AutoCloseable {
         ProfilerAggregator current = this.session;
         if (current == null || !current.active()) return NOOP;
         Objects.requireNonNull(source);
-        if (source.registry() != this.sources)
-            throw new IllegalArgumentException("Source belongs to a different profiler");
+        if (source.index() < 0)
+            throw new IllegalArgumentException("Source is not registered: " + source.id());
         State state = this.state(current);
         if (state.depth == MAX_DEPTH) {
             state.discarded++;

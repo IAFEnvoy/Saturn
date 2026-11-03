@@ -4,6 +4,7 @@ import com.iafenvoy.saturn.data.trigger.TriggerPayload;
 import com.iafenvoy.saturn.data.trigger.TriggerSignals;
 import com.iafenvoy.saturn.profiling.ProfilerScope;
 import com.iafenvoy.saturn.profiling.ServerProfiling;
+import com.iafenvoy.saturn.registry.SaturnProfilerSources;
 import com.iafenvoy.saturn.util.formula.FormulaContext;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
@@ -188,7 +189,7 @@ public final class VanillaTriggerBridge {
 
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.TRIGGER)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.TRIGGER)) {
             if (PENDING_EFFECTS.isEmpty()) return;
             Map<UUID, Entity> pending = new HashMap<>(PENDING_EFFECTS);
             PENDING_EFFECTS.clear();

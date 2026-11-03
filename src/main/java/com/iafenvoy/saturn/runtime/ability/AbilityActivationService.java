@@ -8,6 +8,7 @@ import com.iafenvoy.saturn.data.ability.ToggleContext;
 import com.iafenvoy.saturn.profiling.ProfilerScope;
 import com.iafenvoy.saturn.profiling.ServerProfiling;
 import com.iafenvoy.saturn.registry.SaturnAttachments;
+import com.iafenvoy.saturn.registry.SaturnProfilerSources;
 import com.iafenvoy.saturn.runtime.resulting.Failure;
 import com.iafenvoy.saturn.runtime.resulting.Result;
 import com.iafenvoy.saturn.runtime.resulting.failures.AbilityFailure;
@@ -31,7 +32,7 @@ public final class AbilityActivationService {
     }
 
     public static Result<Void> activate(LivingEntity holder, Holder<Ability> ability, @Nullable ItemStack carrier) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.ABILITY_CAST)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.ABILITY_CAST)) {
             if (holder == null || ability == null || !(ability.value().type() instanceof Togglable togglable))
                 return Result.failure(AbilityFailure.UNAVAILABLE);
             // A press writes state and world, so only the server answers one; reading the state stays two-sided.
@@ -59,7 +60,7 @@ public final class AbilityActivationService {
 
     // The cast path an saturn:active press takes; kept here so the type itself stays a plain data record.
     public static Result<Void> cast(ToggleContext context) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.ABILITY_CAST)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.ABILITY_CAST)) {
             LivingEntity holder = context.holder();
             AbilityAttachment abilities = holder.getData(SaturnAttachments.ABILITY_HOLDER);
             ResourceHolderAttachment resources = holder.getData(SaturnAttachments.RESOURCE_HOLDER);

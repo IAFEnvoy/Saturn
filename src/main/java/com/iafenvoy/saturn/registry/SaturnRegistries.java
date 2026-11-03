@@ -17,6 +17,7 @@ import com.iafenvoy.saturn.data.resourcebar.ResourceBarVisibility;
 import com.iafenvoy.saturn.data.storage.DataStorage;
 import com.iafenvoy.saturn.data.timeline.TimelineEntry;
 import com.iafenvoy.saturn.data.trigger.Trigger;
+import com.iafenvoy.saturn.profiling.ProfilerSource;
 import com.iafenvoy.saturn.screen.opener.OpenScreenData;
 import com.iafenvoy.saturn.util.formula.FormulaVariable;
 import com.iafenvoy.saturn.util.formula.NumberProvider;
@@ -46,6 +47,7 @@ public final class SaturnRegistries {
     private static final List<Registry<?>> REGISTRIES = new LinkedList<>();
 
     public static final Registry<StreamCodec<RegistryFriendlyByteBuf, ? extends OpenScreenData>> OPEN_SCREEN_DATA = create(SaturnResourceKeys.OPEN_SCREEN_DATA, true);
+    public static final Registry<ProfilerSource> PROFILER_SOURCE = create(SaturnResourceKeys.PROFILER_SOURCE, true);
     public static final Registry<MapCodec<? extends EntityValueGetter<?>>> ENTITY_VALUE_GETTER = create(SaturnResourceKeys.ENTITY_VALUE_GETTER, false);
 
     public static final DefaultedRegistry<MapCodec<? extends InformationExpression>> INFORMATION_EXPRESSION_TYPE = create("constant", SaturnResourceKeys.INFORMATION_EXPRESSION_TYPE);

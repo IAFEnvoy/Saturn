@@ -4,6 +4,7 @@ import com.iafenvoy.saturn.data.trigger.TriggerContext;
 import com.iafenvoy.saturn.data.trigger.TriggerSignal;
 import com.iafenvoy.saturn.profiling.ProfilerScope;
 import com.iafenvoy.saturn.profiling.ServerProfiling;
+import com.iafenvoy.saturn.registry.SaturnProfilerSources;
 import com.iafenvoy.saturn.util.formula.FormulaContext;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.LivingEntity;
@@ -19,14 +20,14 @@ public final class TriggerPublishing {
     }
 
     public static void publish(Identifier signalType, LivingEntity actor, FormulaContext context) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.TRIGGER)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.TRIGGER)) {
             publish(signalType, actor, context, ignored -> {
             });
         }
     }
 
     public static void publish(Identifier signalType, LivingEntity actor, FormulaContext context, Consumer<TriggerContext> enrich) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.TRIGGER)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.TRIGGER)) {
             // Nothing to react with, so nothing to build: the tick signal is published by every living entity on
             // every tick, and only the entities something listens to pay for a context.
             if (!TriggerDispatcher.hasListener(signalType)) return;

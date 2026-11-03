@@ -8,6 +8,7 @@ import com.iafenvoy.saturn.profiling.LoggerDispatcher;
 import com.iafenvoy.saturn.profiling.ProfilerScope;
 import com.iafenvoy.saturn.profiling.ServerProfiling;
 import com.iafenvoy.saturn.registry.SaturnDatapackRegistries;
+import com.iafenvoy.saturn.registry.SaturnProfilerSources;
 import com.iafenvoy.saturn.registry.SaturnResourceKeys;
 import com.iafenvoy.saturn.runtime.resulting.Failure;
 import com.iafenvoy.saturn.runtime.resulting.Failures;
@@ -57,7 +58,7 @@ public final class CostPayment {
      * store could pay.
      */
     public static Result<List<Debit>> pay(List<Cost> costs, CostContext context) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.COST)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.COST)) {
             CostPayment payment = of(context);
             Optional<Failure> refusal = payment.price(costs);
             return refusal.<Result<List<Debit>>>map(Result::failure).orElseGet(payment::pay);
@@ -70,7 +71,7 @@ public final class CostPayment {
      * refuses here, and a payment that was priced in part pays nothing at all.
      */
     public Optional<Failure> price(List<Cost> costs) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.COST)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.COST)) {
             return this.price(costs, this.context);
         }
     }
@@ -80,7 +81,7 @@ public final class CostPayment {
      * account and a ground out of a world pool without becoming two payments.
      */
     public Optional<Failure> price(List<Cost> costs, CostContext context) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.COST)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.COST)) {
             if (this.closed) return Optional.of(CostFailure.BILL_CLOSED);
             for (Cost cost : costs) {
                 Result<Cost.Transaction> prepared = cost.prepare(context);
@@ -98,7 +99,7 @@ public final class CostPayment {
      * usable, so a caller can ask again after the inventory moved and then pay.
      */
     public Optional<Failure> test() {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.COST)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.COST)) {
             if (this.taken != null) return this.taken.getFailure();
             if (this.failure != null) return Optional.of(this.failure);
             List<Entry> plan = this.plan();
@@ -116,7 +117,7 @@ public final class CostPayment {
      * Repeating this call returns the terminal answer without charging again.
      */
     public Result<List<Debit>> pay() {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.COST)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.COST)) {
             if (this.taken != null) return this.taken;
             if (this.paying) return Result.failure(CostFailure.REENTRANT);
             // Asked once the real pass had begun and never answered: whatever it wrote before the throw cannot be taken

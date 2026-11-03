@@ -5,6 +5,7 @@ import com.iafenvoy.saturn.profiling.LoggerDispatcher;
 import com.iafenvoy.saturn.profiling.LoggingLevel;
 import com.iafenvoy.saturn.profiling.ProfilerScope;
 import com.iafenvoy.saturn.profiling.ServerProfiling;
+import com.iafenvoy.saturn.registry.SaturnProfilerSources;
 import com.mojang.logging.LogUtils;
 import net.minecraft.world.entity.LivingEntity;
 import net.neoforged.neoforge.common.NeoForge;
@@ -23,7 +24,7 @@ public final class TriggerRehydrators {
     }
 
     public static void rehydrate(LivingEntity entity) {
-        try (ProfilerScope _ = ServerProfiling.scope(ServerProfiling.Source.TRIGGER)) {
+        try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.TRIGGER)) {
             if (entity.level().isClientSide()) return;
             int before = TriggerDispatcher.subscriptionCount(entity.getUUID());
             NeoForge.EVENT_BUS.post(new TriggerRehydrateEvent(entity));
