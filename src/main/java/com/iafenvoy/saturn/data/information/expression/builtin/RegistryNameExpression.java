@@ -22,7 +22,8 @@ import net.minecraft.world.level.block.Block;
 
 import java.util.Set;
 
-public record RegistryNameExpression(Identifier registry, InformationExpression value) implements InformationExpression {
+public record RegistryNameExpression(Identifier registry,
+                                     InformationExpression value) implements InformationExpression {
     public static final MapCodec<RegistryNameExpression> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
             Identifier.CODEC.fieldOf("registry").forGetter(RegistryNameExpression::registry),
             InformationExpression.CODEC.fieldOf("value").forGetter(RegistryNameExpression::value)

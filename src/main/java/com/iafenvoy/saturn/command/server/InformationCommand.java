@@ -10,7 +10,6 @@ import com.iafenvoy.saturn.screen.opener.ScreenOpener;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
-import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.EntityArgument;
@@ -34,10 +33,7 @@ import static net.minecraft.commands.Commands.literal;
  * Operator diagnostic for the same getter/expression results used by screens and cards.
  */
 public final class InformationCommand {
-    private static final DynamicCommandExceptionType UNKNOWN_GROUP = new DynamicCommandExceptionType(
-            id -> Component.translatable("command.saturn.information.unknown_group", id.toString()));
-    private static final SimpleCommandExceptionType TOO_LARGE = new SimpleCommandExceptionType(
-            Component.translatable("command.saturn.information.too_large"));
+    private static final DynamicCommandExceptionType UNKNOWN_GROUP = new DynamicCommandExceptionType(id -> Component.translatable("command.saturn.information.unknown_group", id.toString()));
 
     private InformationCommand() {
     }
