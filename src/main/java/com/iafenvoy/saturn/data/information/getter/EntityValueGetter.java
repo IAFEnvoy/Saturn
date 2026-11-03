@@ -6,7 +6,6 @@ import com.iafenvoy.saturn.data.information.model.SavedPlayerViewContext;
 import com.iafenvoy.saturn.data.information.model.ViewValue;
 import com.iafenvoy.saturn.registry.SaturnRegistries;
 import com.mojang.serialization.Codec;
-import com.mojang.serialization.DataResult;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
@@ -18,13 +17,7 @@ import java.util.function.Function;
  * A configurable, read-only query. The registry stores its parameter codec; snapshots store its result.
  */
 public interface EntityValueGetter<T> {
-    Codec<EntityValueGetter<?>> CODEC = Codec.lazyInitialized(() -> {
-        Codec<MapCodec<? extends EntityValueGetter<?>>> types = Identifier.CODEC.comapFlatMap(id -> {
-            MapCodec<? extends EntityValueGetter<?>> codec = SaturnRegistries.ENTITY_VALUE_GETTER.getValue(id);
-            return codec == null ? DataResult.error(() -> "Unknown entity value getter: " + id) : DataResult.success(codec);
-        }, SaturnRegistries.ENTITY_VALUE_GETTER::getKey);
-        return types.dispatch("type", EntityValueGetter::codec, Function.identity());
-    });
+    Codec<EntityValueGetter<?>> CODEC = SaturnRegistries.ENTITY_VALUE_GETTER.byNameCodec().dispatch("type", EntityValueGetter::codec, Function.identity());
 
     MapCodec<? extends EntityValueGetter<T>> codec();
 

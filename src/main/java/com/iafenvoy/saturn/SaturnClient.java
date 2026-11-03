@@ -6,18 +6,8 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 
-/**
- * Registers the four resource-bar HUD elements from client setup rather than the first frame so the HUD editor finds
- * them on the main menu too.
- *
- * <p>{@link ResourceBarOverlay#registerEntries()} is idempotent, so a dependent mod that still calls it from its own
- * client setup registers nothing twice.
- */
 @EventBusSubscriber(Dist.CLIENT)
 public final class SaturnClient {
-    private SaturnClient() {
-    }
-
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(ResourceBarOverlay::registerEntries);

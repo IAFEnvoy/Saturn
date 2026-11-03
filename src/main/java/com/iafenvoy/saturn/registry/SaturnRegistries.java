@@ -17,6 +17,7 @@ import com.iafenvoy.saturn.data.resourcebar.ResourceBarVisibility;
 import com.iafenvoy.saturn.data.storage.DataStorage;
 import com.iafenvoy.saturn.data.timeline.TimelineEntry;
 import com.iafenvoy.saturn.data.trigger.Trigger;
+import com.iafenvoy.saturn.screen.opener.OpenScreenData;
 import com.iafenvoy.saturn.util.formula.FormulaVariable;
 import com.iafenvoy.saturn.util.formula.NumberProvider;
 import com.iafenvoy.saturn.util.matcher.ItemMatcher.Entry;
@@ -24,12 +25,14 @@ import com.mojang.serialization.Lifecycle;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.DefaultedMappedRegistry;
 import net.minecraft.core.DefaultedRegistry;
-import net.minecraft.core.MappedRegistry;
 import net.minecraft.core.Registry;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.ResourceKey;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.registries.NewRegistryEvent;
+import net.neoforged.neoforge.registries.RegistryBuilder;
 import net.objecthunter.exp4j.function.Function;
 
 import java.util.LinkedList;
@@ -42,10 +45,10 @@ import java.util.List;
 public final class SaturnRegistries {
     private static final List<Registry<?>> REGISTRIES = new LinkedList<>();
 
-    public static final Registry<MapCodec<? extends EntityValueGetter<?>>> ENTITY_VALUE_GETTER = create(SaturnResourceKeys.ENTITY_VALUE_GETTER);
+    public static final Registry<StreamCodec<RegistryFriendlyByteBuf, ? extends OpenScreenData>> OPEN_SCREEN_DATA = create(SaturnResourceKeys.OPEN_SCREEN_DATA, true);
+    public static final Registry<MapCodec<? extends EntityValueGetter<?>>> ENTITY_VALUE_GETTER = create(SaturnResourceKeys.ENTITY_VALUE_GETTER, false);
 
     public static final DefaultedRegistry<MapCodec<? extends InformationExpression>> INFORMATION_EXPRESSION_TYPE = create("constant", SaturnResourceKeys.INFORMATION_EXPRESSION_TYPE);
-
     public static final DefaultedRegistry<MapCodec<? extends AbilityType>> ABILITY_TYPE = create("empty", SaturnResourceKeys.ABILITY_TYPE);
     public static final DefaultedRegistry<MapCodec<? extends TargetSelector>> ABILITY_TARGET_SELECTOR_TYPE = create("self", SaturnResourceKeys.ABILITY_TARGET_SELECTOR_TYPE);
     public static final DefaultedRegistry<MapCodec<? extends Cost>> COST_TYPE = create("resource", SaturnResourceKeys.COST_TYPE);
@@ -80,8 +83,8 @@ public final class SaturnRegistries {
         return registry;
     }
 
-    private static <T> Registry<T> create(ResourceKey<? extends Registry<T>> key) {
-        Registry<T> registry = new MappedRegistry<>(key, Lifecycle.stable(), false);
+    private static <T> Registry<T> create(ResourceKey<? extends Registry<T>> key, boolean sync) {
+        Registry<T> registry = new RegistryBuilder<>(key).sync(sync).create();
         REGISTRIES.add(registry);
         return registry;
     }

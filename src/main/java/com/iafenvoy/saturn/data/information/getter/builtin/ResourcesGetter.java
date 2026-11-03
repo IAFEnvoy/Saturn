@@ -1,5 +1,6 @@
 package com.iafenvoy.saturn.data.information.getter.builtin;
 
+import com.iafenvoy.saturn.Saturn;
 import com.iafenvoy.saturn.attachment.ResourceHolderAttachment;
 import com.iafenvoy.saturn.data.information.getter.EntityValueGetter;
 import com.iafenvoy.saturn.data.information.model.PlayerViewData;
@@ -47,8 +48,8 @@ public enum ResourcesGetter implements EntityValueGetter<List<PlayerViewData.Res
     @Override
     public ViewValue<List<PlayerViewData.Resource>> readSaved(SavedPlayerViewContext context) {
         CompoundTag attachments = context.player().getCompound("neoforge:attachments").orElseGet(CompoundTag::new);
-        return GetterSupport.saved(attachments, "saturn:resource_holder", data -> {
-            CompoundTag resource = data.getCompound("saturn:resource_holder").orElseThrow();
+        return GetterSupport.saved(attachments, Saturn.MOD_ID + ":resource_holder", data -> {
+            CompoundTag resource = data.getCompound(Saturn.MOD_ID + ":resource_holder").orElseThrow();
             CompoundTag values = resource.getCompound("values").orElseThrow();
             CompoundTag audits = resource.getCompound("audit").orElseGet(CompoundTag::new);
             List<PlayerViewData.Resource> resources = new ArrayList<>();

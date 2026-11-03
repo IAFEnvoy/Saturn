@@ -16,10 +16,8 @@ import net.neoforged.neoforge.registries.DeferredRegister;
  * pack writes, never a rule of a world.
  */
 public final class SaturnLootRegistries {
-    public static final DeferredRegister<MapCodec<? extends LootItemCondition>> CONDITIONS =
-            DeferredRegister.create(Registries.LOOT_CONDITION_TYPE, Saturn.MOD_ID);
-    public static final DeferredRegister<MapCodec<? extends LootItemFunction>> FUNCTIONS =
-            DeferredRegister.create(Registries.LOOT_FUNCTION_TYPE, Saturn.MOD_ID);
+    public static final DeferredRegister<MapCodec<? extends LootItemCondition>> CONDITIONS = DeferredRegister.create(Registries.LOOT_CONDITION_TYPE, Saturn.MOD_ID);
+    public static final DeferredRegister<MapCodec<? extends LootItemFunction>> FUNCTIONS = DeferredRegister.create(Registries.LOOT_FUNCTION_TYPE, Saturn.MOD_ID);
 
     static {
         CONDITIONS.register("has_ability", () -> HasAbilityLootCondition.CODEC);

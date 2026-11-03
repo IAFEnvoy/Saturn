@@ -1,5 +1,6 @@
 package com.iafenvoy.saturn.data.condition.builtin.entity;
 
+import com.iafenvoy.saturn.Saturn;
 import com.iafenvoy.saturn.data.condition.BiEntityCondition;
 import com.iafenvoy.saturn.data.condition.EntityCondition;
 import com.iafenvoy.saturn.data.context.condition.EntityConditionContext;
@@ -31,7 +32,7 @@ public record PartnerEntityCondition(double range, Count count,
     private static DataResult<PartnerEntityCondition> validate(PartnerEntityCondition condition) {
         return condition.count().valid()
                 ? DataResult.success(condition)
-                : DataResult.error(() -> "saturn:partner count needs 0 <= min <= max");
+                : DataResult.error(() -> Saturn.MOD_ID + ":partner count needs 0 <= min <= max");
     }
 
     @Override

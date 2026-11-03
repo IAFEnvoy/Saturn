@@ -1,5 +1,6 @@
 package com.iafenvoy.saturn.data.context;
 
+import com.iafenvoy.saturn.Saturn;
 import com.iafenvoy.saturn.util.formula.FormulaContext;
 import net.minecraft.core.HolderLookup.Provider;
 import net.minecraft.world.phys.Vec3;
@@ -11,7 +12,7 @@ import java.util.Optional;
 
 public abstract class Context {
     // Read it through origin(), never directly: the extension map is untyped.
-    public static final String ORIGIN = "saturn:origin";
+    public static final String ORIGIN = Saturn.MOD_ID + ":origin";
 
     private final Map<String, Object> data;
 

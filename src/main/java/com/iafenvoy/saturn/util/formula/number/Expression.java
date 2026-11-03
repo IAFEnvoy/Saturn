@@ -18,8 +18,7 @@ import java.util.*;
 public final class Expression implements NumberProvider {
     private static final MapCodec<Expression> RAW_CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
             Codec.STRING.fieldOf("expression").forGetter(Expression::source),
-            Codec.lazyInitialized(() -> CollectionCodecs.map(Codec.STRING, CODEC))
-                    .optionalFieldOf("params", Map.of()).forGetter(Expression::params)
+            CollectionCodecs.map(Codec.STRING, CODEC).optionalFieldOf("params", Map.of()).forGetter(Expression::params)
     ).apply(i, Expression::new));
 
     // Reports every problem of the expression as one error, so a load lists all broken formulas at once.

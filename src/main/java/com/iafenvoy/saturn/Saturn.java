@@ -5,6 +5,7 @@ import com.iafenvoy.saturn.gametest.InformationTests;
 import com.iafenvoy.saturn.registry.SaturnAttachments;
 import com.iafenvoy.saturn.registry.SaturnContent;
 import com.iafenvoy.saturn.registry.SaturnLootRegistries;
+import com.iafenvoy.saturn.registry.SaturnOpenScreenData;
 import com.iafenvoy.saturn.registry.cache.RegistryCaches;
 import com.mojang.logging.LogUtils;
 import net.neoforged.bus.api.IEventBus;
@@ -17,13 +18,6 @@ import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.fml.loading.FMLEnvironment;
 import org.slf4j.Logger;
 
-/**
- * The library mod: definitions a data pack writes (actions, conditions, costs, formulas, storage, timelines, triggers,
- * abilities, resources and their bars), the runtime that reads them, and the client framework that draws the bars.
- *
- * <p>A dependent mod depends on this jar and keeps its own content, its own attachments and its own services. What is
- * shared here is the vocabulary and the plumbing, never a gameplay rule.
- */
 @Mod(Saturn.MOD_ID)
 @EventBusSubscriber
 public final class Saturn {
@@ -33,17 +27,16 @@ public final class Saturn {
     public Saturn(IEventBus bus, ModContainer container) {
         container.registerConfig(ModConfig.Type.COMMON, SaturnConfig.COMMON_SPEC);
         container.registerConfig(ModConfig.Type.CLIENT, SaturnConfig.CLIENT_SPEC);
+
         SaturnAttachments.REGISTRY.register(bus);
-        SaturnLootRegistries.register(bus);
         SaturnContent.register(bus);
+        SaturnLootRegistries.CONDITIONS.register(bus);
+        SaturnLootRegistries.FUNCTIONS.register(bus);
+        SaturnOpenScreenData.REGISTRY.register(bus);
+
         InformationTests.register(bus);
     }
 
-    /**
-     * Constructs every cache into {@code RegistryCache}'s rebuild list. That event only rebuilds what is already
-     * registered there, and nothing else touches that class before a world loads, so a run without this call leaves
-     * all of them empty for the whole session.
-     */
     @SubscribeEvent
     public static void onInit(FMLCommonSetupEvent event) {
         RegistryCaches.init();
@@ -55,6 +48,6 @@ public final class Saturn {
      * build can open it with {@code -Dsaturn.debug=true}.
      */
     public static boolean isDevMode() {
-        return !FMLEnvironment.isProduction() || Boolean.getBoolean("saturn.debug");
+        return !FMLEnvironment.isProduction() || Boolean.getBoolean(MOD_ID + ".debug");
     }
 }

@@ -24,11 +24,15 @@ import com.iafenvoy.saturn.data.storage.DataStorage;
 import com.iafenvoy.saturn.data.timeline.TimelineEntry;
 import com.iafenvoy.saturn.data.trigger.Trigger;
 import com.iafenvoy.saturn.data.trigger.TriggerRule;
+import com.iafenvoy.saturn.screen.opener.OpenScreenData;
 import com.iafenvoy.saturn.util.formula.FormulaVariable;
 import com.iafenvoy.saturn.util.formula.NumberProvider;
 import com.iafenvoy.saturn.util.matcher.ItemMatcher.Entry;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.Registry;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.objecthunter.exp4j.function.Function;
@@ -41,6 +45,7 @@ import net.objecthunter.exp4j.function.Function;
  */
 public final class SaturnResourceKeys {
     // Builtin registries
+    public static final ResourceKey<Registry<StreamCodec<RegistryFriendlyByteBuf, ? extends OpenScreenData>>> OPEN_SCREEN_DATA = create("open_screen_data");
     public static final ResourceKey<Registry<MapCodec<? extends EntityValueGetter<?>>>> ENTITY_VALUE_GETTER = create("entity_value_getter");
     public static final ResourceKey<Registry<MapCodec<? extends InformationExpression>>> INFORMATION_EXPRESSION_TYPE = create("information_expression_type");
     public static final ResourceKey<Registry<MapCodec<? extends AbilityType>>> ABILITY_TYPE = create("ability_type");

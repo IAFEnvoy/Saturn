@@ -8,7 +8,10 @@ import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.Holder;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.RegistryFixedCodec;
 import net.minecraft.tags.TagKey;
 
@@ -26,6 +29,7 @@ public record InformationGroup(Component title, int order,
             Codec.INT.optionalFieldOf("order", 0).forGetter(InformationGroup::order),
             RegistryCodecs.holderOrTag(SaturnResourceKeys.INFORMATION_ROW).listOf().fieldOf("rows").forGetter(InformationGroup::rows)
     ).apply(i, InformationGroup::new));
+    public static final StreamCodec<RegistryFriendlyByteBuf, Holder<InformationGroup>> STREAM_CODEC = ByteBufCodecs.holderRegistry(SaturnResourceKeys.INFORMATION_GROUP);
     public static final Comparator<Holder<InformationGroup>> ORDER = Comparator
             .comparingInt((Holder<InformationGroup> group) -> group.value().order())
             .thenComparing(group -> group.unwrapKey().orElseThrow().identifier());

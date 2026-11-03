@@ -165,6 +165,7 @@ Codec 复用 `RegistryCodecs.holderOrTag(SaturnResourceKeys.INFORMATION_ROW).lis
 | `items` | `value`：表达式 | Items；按 `Map<String, PlayerViewItem>` Codec 解码 |
 | `meter` | `value`、`max`：表达式，`min`：表达式，默认 `0` | Meter；要求 max ≥ min |
 | `translate` | `key`：字符串表达式，`arguments`：表达式数组默认 `[]`，`fallback`：可选字符串表达式 | 延迟翻译的 Component；保留 Component 参数和样式 |
+| `registry_name` | `registry`：注册表 ID，`value`：条目 ID 表达式 | Text；从当前求值上下文的注册表解析名称，保留客户端翻译 |
 | `format` | `format`：格式字符串，`arguments`：表达式数组 | 中间字符串；`String.format(Locale.ROOT, ...)`，数字参数为 double，使用 `%f`/`%.1f` 等 |
 | `arithmetic` | `operation`：`add/subtract/multiply/divide/min/max`，`left`、`right`：表达式 | 中间数值；除零等非有限结果为 INVALID |
 | `compare` | `operation`：`eq/ne/lt/le/gt/ge`，`left`、`right`：表达式 | 布尔值；eq/ne 比较标量或文字，其余比较数字 |
@@ -178,6 +179,18 @@ Codec 复用 `RegistryCodecs.holderOrTag(SaturnResourceKeys.INFORMATION_ROW).lis
 最终 value 若直接返回中间标量，会自动投影为 Text、Number 或 Flag。对象和数组需要明确通过 `text`、`items`、`list` 或 `table` 消费，避免把整个结构盲目转成字符串。
 
 `translate` 保留翻译键，在客户端根据语言显示；`format` 生成固定字符串，Component 参数会转成当前环境的文字，不适合代替延迟翻译。翻译数字参数的整数值会以整数形式传入，避免效果等级出现 `1.0`。
+
+`registry_name` 对属性、状态效果、物品、方块和实体类型使用对象自身的 `getDescriptionId()`，兼容模组自定义翻译键；其他注册表采用 `DefinitionText` 的命名规则。条目或注册表不可用、没有注册表上下文，或客户端缺少翻译时回退为原始条目 ID。输入 ID 无效或缺失时保留 Missing。它只解析展示名称，不修改快照里的 ID、属性基值或历史有效值。
+
+内置属性表使用以下表达式，`minecraft:max_health` 会按客户端语言显示为“最大生命值”或“Max Health”：
+
+```json
+{
+  "type": "saturn:registry_name",
+  "registry": "minecraft:attribute",
+  "value": { "type": "saturn:local", "path": ["id"] }
+}
+```
 
 ### 列表与表格作用域
 

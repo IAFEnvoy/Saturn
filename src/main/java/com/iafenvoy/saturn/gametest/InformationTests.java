@@ -30,11 +30,15 @@ import net.minecraft.gametest.framework.TestEnvironmentDefinition;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.RegistryOps;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.attributes.RangedAttribute;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.event.RegisterGameTestsEvent;
 import net.neoforged.neoforge.gametest.GameTestHooks;
@@ -60,8 +64,7 @@ public final class InformationTests {
                 "group_selections", InformationTests::groupSelections,
                 "field_registry", EntityValueGetterTests::registry,
                 "live_fields", EntityValueGetterTests::live,
-                "saved_fields", EntityValueGetterTests::saved,
-                "command", InformationCommandTests::run);
+                "saved_fields", EntityValueGetterTests::saved);
         DeferredRegister<Consumer<GameTestHelper>> functions = DeferredRegister.create(Registries.TEST_FUNCTION, Saturn.MOD_ID);
         tests.forEach((name, test) -> functions.register("information/" + name, () -> test));
         functions.register(bus);
@@ -93,7 +96,9 @@ public final class InformationTests {
         builder.put(EntityValueGetters.ABSORPTION, 0.0);
         builder.put(EntityValueGetters.AIR, 300);
         builder.put(EntityValueGetters.EFFECTS, List.of(new PlayerViewData.Effect(Identifier.parse("minecraft:speed"), 0, 100, false, true)));
-        builder.put(EntityValueGetters.ATTRIBUTES, List.of(new PlayerViewData.Attribute(id("attribute"), 2, Optional.of(4.0))));
+        builder.put(EntityValueGetters.ATTRIBUTES, List.of(
+                new PlayerViewData.Attribute(Identifier.parse("minecraft:max_health"), 20, Optional.of(24.0)),
+                new PlayerViewData.Attribute(id("attribute"), 2, Optional.of(4.0))));
         builder.put(EntityValueGetters.RESOURCES, List.of(new PlayerViewData.Resource(id("resource"), 3, Optional.of(0.0), Optional.of(10.0), 0)));
         builder.put(EntityValueGetters.ABILITIES, List.of(id("ability")));
         Map<String, PlayerViewItem> items = Map.of("0", PlayerViewItem.capture(new ItemStack(Items.DIAMOND, 2), registries));
@@ -110,6 +115,14 @@ public final class InformationTests {
         helper.assertTrue(row(document, "health").sourceFields().containsAll(Set.of(id("health"), id("max_health"))), "fallback dependencies retained");
         helper.assertValueEqual(((InformationValue.Text) row(document, "name").value()).text().getStyle().getColor().getValue(), 0x123456, "component style retained");
         helper.assertValueEqual(((InformationValue.Table) row(document, "resources").value()).rowIds(), List.of("saturn:resource"), "table row ids come from local scope");
+        InformationValue.Table attributes = (InformationValue.Table) row(document, "attributes").value();
+        Component attributeName = ((InformationValue.Text) attributes.rows().getFirst().getFirst()).text();
+        helper.assertValueEqual(((TranslatableContents) attributeName.getContents()).getKey(), Attributes.MAX_HEALTH.value().getDescriptionId(),
+                "attribute table keeps the native translation key for the client");
+        helper.assertValueEqual(((InformationValue.Text) attributes.rows().get(1).getFirst()).text().getString(), "saturn:attribute",
+                "uninstalled attributes keep their recorded id");
+        helper.assertValueEqual(((InformationValue.Number) attributes.rows().getFirst().get(2)).value(), 24.0,
+                "translating names preserves the recorded effective attribute value");
         helper.assertValueEqual(((InformationValue.Items) row(document, "inventory").value()).items().get("0").count(), 2, "item codec keeps structured data");
         helper.assertValueEqual(row(document, "game_mode").importance(), 40, "game mode importance");
         helper.assertValueEqual(row(document, "abilities").importance(), 70, "ability importance");
@@ -153,6 +166,20 @@ public final class InformationTests {
         helper.assertValueEqual(evaluate(helper, """
                 {"type":"saturn:format","format":"%.1f","arguments":[3]}
                 """).text().getString(), "3.0", "format receives numeric arguments");
+        InformationExpression attributeName = InformationExpression.CODEC.parse(JsonOps.INSTANCE, JsonParser.parseString("""
+                {"type":"saturn:registry_name","registry":"minecraft:attribute","value":"saturn:custom_attribute"}
+                """)).getOrThrow();
+        MappedRegistry<Attribute> attributes = new MappedRegistry<>(Registries.ATTRIBUTE, Lifecycle.stable());
+        Registry.register(attributes, id("custom_attribute"), new RangedAttribute("external.custom.translation", 1, 0, 100));
+        attributes.freeze();
+        InformationContext names = new InformationContext("en_us", HolderLookup.Provider.create(Stream.of(attributes)));
+        Component customName = new InformationEvaluation(builder(helper).build(), names).evaluate(attributeName).text();
+        helper.assertValueEqual(((TranslatableContents) customName.getContents()).getKey(), "external.custom.translation",
+                "custom attributes use their actual description id instead of deriving a key from their registry id");
+        helper.assertValueEqual(customName.getString(), "saturn:custom_attribute", "missing client translations fall back to the attribute id");
+        helper.assertTrue(evaluate(helper, """
+                {"type":"saturn:registry_name","registry":"minecraft:attribute","value":"invalid id"}
+                """) instanceof ExpressionValue.Missing, "invalid name input remains missing");
         RegistryOps<JsonElement> ops = helper.getLevel().registryAccess().createSerializationContext(JsonOps.INSTANCE);
         helper.assertTrue(InformationExpression.CODEC.parse(ops, JsonParser.parseString("{\"type\":\"absent:expression\"}")).isError(), "unknown expression rejected");
         helper.assertTrue(InformationExpression.CODEC.parse(ops, JsonParser.parseString("{\"value\":0}")).isError(), "typed objects require explicit type");

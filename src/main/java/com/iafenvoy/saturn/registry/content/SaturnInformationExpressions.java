@@ -20,6 +20,7 @@ public final class SaturnInformationExpressions {
         REGISTRY.register("items", () -> ItemsExpression.CODEC);
         REGISTRY.register("meter", () -> MeterExpression.CODEC);
         REGISTRY.register("translate", () -> TranslateExpression.CODEC);
+        REGISTRY.register("registry_name", () -> RegistryNameExpression.CODEC);
         REGISTRY.register("format", () -> FormatExpression.CODEC);
         REGISTRY.register("arithmetic", () -> ArithmeticExpression.CODEC);
         REGISTRY.register("compare", () -> CompareExpression.CODEC);

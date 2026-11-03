@@ -1,5 +1,6 @@
 package com.iafenvoy.saturn.data.information.model;
 
+import com.iafenvoy.saturn.Saturn;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.UUIDUtil;
@@ -23,6 +24,6 @@ public record PlayerViewRef(UUID accountId, Identifier source, String recordId) 
     }
 
     public static PlayerViewRef current(UUID account) {
-        return new PlayerViewRef(account, Identifier.parse("saturn:current"), "current");
+        return new PlayerViewRef(account, Identifier.fromNamespaceAndPath(Saturn.MOD_ID, "current"), "current");
     }
 }

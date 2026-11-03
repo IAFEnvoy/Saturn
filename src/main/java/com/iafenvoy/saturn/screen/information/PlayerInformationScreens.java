@@ -23,7 +23,6 @@ public final class PlayerInformationScreens {
     }
 
     public static PlayerInformationScreen create(@Nullable Screen parent, PlayerView view, InformationContext context, Set<Holder<InformationGroup>> groups) {
-        return new PlayerInformationScreen(parent, groups.isEmpty() ? PlayerInformation.collectAll(view, context)
-                : PlayerInformation.collect(view, context, groups), groups);
+        return new PlayerInformationScreen(parent, groups.isEmpty() ? PlayerInformation.collectAll(view, context) : PlayerInformation.collect(view, context, groups), groups);
     }
 }

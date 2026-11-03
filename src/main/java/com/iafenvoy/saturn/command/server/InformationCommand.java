@@ -4,26 +4,24 @@ import com.iafenvoy.saturn.data.information.*;
 import com.iafenvoy.saturn.data.information.model.InformationContext;
 import com.iafenvoy.saturn.data.information.model.InformationDocument;
 import com.iafenvoy.saturn.data.information.model.InformationEntry;
-import com.iafenvoy.saturn.network.payload.InformationGuiS2CPayload;
 import com.iafenvoy.saturn.registry.SaturnResourceKeys;
+import com.iafenvoy.saturn.screen.information.InformationOpenScreenData;
+import com.iafenvoy.saturn.screen.opener.ScreenOpener;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
-import io.netty.buffer.Unpooled;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.commands.arguments.IdentifierArgument;
 import net.minecraft.core.Holder;
-import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.permissions.Permissions;
 import net.minecraft.world.entity.Entity;
-import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.Optional;
 import java.util.Set;
@@ -77,10 +75,9 @@ public final class InformationCommand {
         PlayerViewSnapshot view = PlayerViews.parse(target);
         ServerPlayer executor = source.getPlayer();
         InformationContext context = new InformationContext(executor == null ? "en_us" : executor.clientInformation().language(), source.registryAccess());
-        InformationDocument document = selected == null ? PlayerInformation.collectAll(view, context)
-                : PlayerInformation.collect(view, context, selected);
+        InformationDocument document = selected == null ? PlayerInformation.collectAll(view, context) : PlayerInformation.collect(view, context, selected);
         if (viewer != null) {
-            openGui(viewer, new InformationGuiS2CPayload(document, selected == null ? Set.of() : Set.of(selected)));
+            ScreenOpener.open(viewer, new InformationOpenScreenData(document, selected == null ? Set.of() : Set.of(selected)));
             return document.rows().size();
         }
         source.sendSuccess(() -> selected == null
@@ -90,16 +87,5 @@ public final class InformationCommand {
         for (InformationEntry row : document.rows())
             for (Component line : InformationText.lines(row)) source.sendSuccess(() -> line, false);
         return document.rows().size();
-    }
-
-    private static void openGui(ServerPlayer viewer, InformationGuiS2CPayload payload) throws CommandSyntaxException {
-        RegistryFriendlyByteBuf buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), viewer.registryAccess());
-        try {
-            InformationGuiS2CPayload.STREAM_CODEC.encode(buffer, payload);
-            if (buffer.readableBytes() > 1_000_000) throw TOO_LARGE.create();
-        } finally {
-            buffer.release();
-        }
-        PacketDistributor.sendToPlayer(viewer, payload);
     }
 }

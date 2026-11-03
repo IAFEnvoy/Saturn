@@ -67,8 +67,7 @@ public final class PlayerInformation {
         if (rows.isEmpty() || !all && selected.isEmpty()) return new InformationDocument(List.of());
 
         SetMultimap<Holder<InformationRow>, Holder<InformationGroup>> memberships = HashMultimap.create();
-        definitions(view, context, SaturnResourceKeys.INFORMATION_GROUP).forEach(group ->
-                RegistryCodecs.resolve(group.value().rows(), rows.get()).forEach(row -> memberships.put(row, group)));
+        definitions(view, context, SaturnResourceKeys.INFORMATION_GROUP).forEach(group -> RegistryCodecs.resolve(group.value().rows(), rows.get()).forEach(row -> memberships.put(row, group)));
 
         InformationEvaluation evaluation = new InformationEvaluation(view, context);
         List<InformationEntry> result = new ArrayList<>();

@@ -25,7 +25,8 @@
           "translate": "info.saturn.field.name"
         },
         "value": {
-          "type": "saturn:text",
+          "type": "saturn:registry_name",
+          "registry": "minecraft:attribute",
           "value": {
             "type": "saturn:local",
             "path": [
