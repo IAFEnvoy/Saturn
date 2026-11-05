@@ -5,6 +5,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 
 import java.util.Optional;
+import java.util.function.Function;
 
 public final class HolderHelper {
     public static final Identifier EMPTY = Identifier.fromNamespaceAndPath("", "");
@@ -19,5 +20,9 @@ public final class HolderHelper {
 
     public static Optional<Identifier> idOptional(Holder<?> holder) {
         return holder.unwrapKey().map(ResourceKey::identifier);
+    }
+
+    public static <T> Function<Holder.Reference<T>, Holder<T>> cast() {
+        return x -> x;
     }
 }
