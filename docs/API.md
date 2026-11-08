@@ -267,3 +267,21 @@ public MyMod(IEventBus bus) {
 完整签名、字段、NBT 输入、Codec、界面与验证范围见 [玩家视图与展示行](PLAYER-VIEWS.md)，JSON 定义和自定义 Type 见 [数据驱动信息行](INFORMATION-DATA.md)。
 
 信息指令为 `/information query <target> [<group>]` 和 `/information gui <target> [<group>]`，两者均要求 `Permissions.COMMANDS_ADMIN`（3 级），并保留 `/saturn information query/gui ...` 入口。支持玩家名、UUID 或单实体选择器；省略 group 全取，提供 group 按组筛选，支持当前 Group 注册表的 ID 补全。`query` 使用 `InformationText` 仅向执行者输出文字，控制台可用；`gui` 要求玩家执行，通过 `saturn:information_gui` 客户端载荷传输已经求值的 `InformationDocument` 与分组选择，在执行者客户端打开 `PlayerInformationScreen`。两者返回逻辑行数。GUI 不发送原始快照、不自动刷新；过大的文档提示按组查看。命令提示含中英文翻译键。
+
+## 7. FileAccess 文件编解码
+
+`com.iafenvoy.saturn.util.FileAccess` 提供共享的 Codec 文件边界，公开入口如下：
+
+| 入口 | 写入格式 | 读取格式 |
+| --- | --- | --- |
+| `FileAccess.JSON` | 格式化 JSON | JSON |
+| `FileAccess.NBT` | 未压缩、标准根头部的 NBT | 自动识别未压缩 / GZIP，兼容标准 / 旧版根头部 |
+| `FileAccess.NBT_COMPRESSED` | GZIP 压缩、标准根头部的 NBT | 与 `NBT` 相同 |
+
+`encode(codec, value)` / `decode(codec, bytes)` 处理字节数组；`save(codec, path, value)` / `load(codec, path)` 处理文件。压缩选项只决定写入方式，不限制读取；两种 NBT 入口均可互读，不依赖文件扩展名。
+
+新 NBT 使用原版 `NbtIo.writeUnnamedTag`，保留根类型及空名称字段，可供常规 NBT 编辑器读取。读取时按 GZIP 魔数识别压缩，支持此前 `writeAnyTag` 生成的省略根名称格式；每次解析必须完整消费根数据，避免错位后读出假空对象。只有全部格式尝试失败才记录读取错误，成功兼容旧文件不会输出警告。读取不会改写文件；之后经任一入口保存时，写出该入口指定的压缩方式和标准头部。
+
+NBT 字节处理独立在包内 `NbtFiles`，不继承 `FileAccess`；NBT 单例通过私有匿名适配器创建，避免父类静态初始化引用可独立初始化的命名子类。公开 `FileAccess` 类型、原有方法和 JSON 行为保留。
+
+2026-11-08 编译记录：`gradlew compileJava jar --console=plain` 通过；IDE 对 `FileAccess` 和 `NbtFiles` 的静态检查不再报告类加载死锁警告。未启动游戏或执行测试，实际外部编辑器打开、旧文件恢复和压缩往返尚未运行验收。

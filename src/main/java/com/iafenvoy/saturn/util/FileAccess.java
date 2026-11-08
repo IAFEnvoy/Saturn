@@ -7,8 +7,6 @@ import com.google.gson.JsonParser;
 import com.mojang.logging.LogUtils;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.JsonOps;
-import net.minecraft.nbt.NbtAccounter;
-import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtOps;
 import org.slf4j.Logger;
 
@@ -25,7 +23,8 @@ import java.util.function.Supplier;
 public abstract class FileAccess {
     public static final Logger LOGGER = LogUtils.getLogger();
     public static final FileAccess JSON = new JsonFile();
-    public static final FileAccess NBT = new NbtFile();
+    public static final FileAccess NBT = nbt(false);
+    public static final FileAccess NBT_COMPRESSED = nbt(true);
 
     public <T> T loadOrDefault(Codec<T> codec, Path path, T defaultValue, String jarFilePath) {
         return this.loadOrDefault(codec, path, (Supplier<T>) () -> {
@@ -112,26 +111,29 @@ public abstract class FileAccess {
         }
     }
 
-    private static class NbtFile extends FileAccess {
-        @Override
-        protected <T> Optional<T> deserialize(Codec<T> codec, InputStream stream) {
-            try (DataInputStream input = new DataInputStream(stream)) {
-                return codec.parse(NbtOps.INSTANCE, NbtIo.readAnyTag(input, NbtAccounter.unlimitedHeap())).resultOrPartial(e -> LOGGER.error("Failed to deserialize NBT: {}", e));
-            } catch (Exception e) {
-                LOGGER.error("Failed to read NBT from stream", e);
-                return Optional.empty();
+    private static FileAccess nbt(boolean compressed) {
+        // The anonymous adapter has no separate initialization entry point that can lock against FileAccess.
+        return new FileAccess() {
+            @Override
+            protected <T> Optional<T> deserialize(Codec<T> codec, InputStream stream) {
+                try (InputStream input = stream) {
+                    return codec.parse(NbtOps.INSTANCE, NbtFiles.read(input)).resultOrPartial(e -> LOGGER.error("Failed to deserialize NBT: {}", e));
+                } catch (Exception e) {
+                    LOGGER.error("Failed to read NBT from stream", e);
+                    return Optional.empty();
+                }
             }
-        }
 
-        @Override
-        protected <T> boolean serialize(Codec<T> codec, T data, OutputStream stream) {
-            try (DataOutputStream output = new DataOutputStream(stream)) {
-                NbtIo.writeAnyTag(codec.encodeStart(NbtOps.INSTANCE, data).resultOrPartial(e -> LOGGER.error("Failed to serialize NBT: {}", e)).orElseThrow(), output);
-                return true;
-            } catch (Exception e) {
-                LOGGER.error("Failed to write NBT to stream", e);
-                return false;
+            @Override
+            protected <T> boolean serialize(Codec<T> codec, T data, OutputStream stream) {
+                try (OutputStream output = stream) {
+                    NbtFiles.write(codec.encodeStart(NbtOps.INSTANCE, data).resultOrPartial(e -> LOGGER.error("Failed to serialize NBT: {}", e)).orElseThrow(), output, compressed);
+                    return true;
+                } catch (Exception e) {
+                    LOGGER.error("Failed to write NBT to stream", e);
+                    return false;
+                }
             }
-        }
+        };
     }
 }
