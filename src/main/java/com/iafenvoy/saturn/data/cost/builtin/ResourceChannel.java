@@ -25,15 +25,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The one resource channel, shared by the entry that names a resource and the aura entry charged as the resource it is
- * measured in: one balance, one write, one debit.
+ * Account-backed resource payments share one transaction path and one debit format.
  */
 public final class ResourceChannel {
     private ResourceChannel() {
     }
 
-    // Each resource amount is evaluated with the formula context of the resource it spends, so a cost may refer to that
-    // resource's own realm rank and absorbed aura.
+    // Evaluate the fee in the context of the resource being spent.
     static double evaluate(CostContext context, Holder<Resource> resource, NumberProvider amount) {
         FormulaContext formula = context.payer() == null ? context.formula()
                 : ResourceService.formulaContext(context.payer(), resource, context.formula());

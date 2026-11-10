@@ -9,11 +9,7 @@ import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.jspecify.annotations.NonNull;
 
-/**
- * Applies an entity action to the target of a bi-entity interaction. Anything the nested action places (a bolt, an
- * explosion, particles) happens at the activation's own place by default - a talisman fires from where the carrier
- * stands - so {@code use_target_position} is what "strike this one where it stands" needs.
- */
+/** Applies an action to the target; use_target_position replaces the activation origin with the target position. */
 public record TargetAction(EntityAction action, boolean useTargetPosition) implements BiEntityAction {
     public static final MapCodec<TargetAction> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
             EntityAction.CODEC.fieldOf("action").forGetter(TargetAction::action),

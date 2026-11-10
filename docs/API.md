@@ -35,7 +35,7 @@
 | `ABILITY_TARGET_SELECTOR_TYPE` | `self` |
 | `COST_TYPE` | `resource` |
 | `DATA_STORAGE_TYPE` | `empty` |
-| `TRIGGER_TYPE` | `use` |
+| `TRIGGER_TYPE` | `tick` |
 | `NUMBER_PROVIDER_TYPE` | `constant` |
 | `FORMULA_FUNCTION` | `round` |
 | `FORMULA_VARIABLE` | `zero` |
@@ -184,11 +184,32 @@ Saturn 自带完整的技能与触发器运行时，内容侧只提供规则与�
 
 **触发器**（`runtime.trigger`）：`TriggerDispatcher`（订阅表 + 发布）、`TriggerRuleService`（`saturn:trigger` 规则：条件、概率、冷却）、`TriggerPublishing`、`TriggerSubscription`、`TriggerRehydrators`、`TriggerLifecycleEvents`，以及原版准则的两个桥（`VanillaTriggerBridge` / `VanillaTriggerPollBridge`）。规则的冷却记在 `SaturnAttachments.TRIGGER_COOLDOWNS`。
 
-**钩子**：`api.AbilityHooks` 是 Saturn 向世界提问的唯一入口——伤害倍率、技能校验、施放提交时的准则、物品能否使用、物品给的技能、身体装备（Curios）。默认全为“不改变”，用 `AbilityHooks.set(...)` 在 mod 构造里装一份。
+**成就完成**：`saturn:advancement_completed` 在服务端收到 NeoForge `AdvancementEarnEvent` 时发布，表示整个 Minecraft advancement 的条件已经完成，而不是单个准则进度变化。`AdvancementCompletedTrigger` 的可选 `advancement` 字段筛选成就 ID；省略则匹配所有成就，包括隐藏成就和配方解锁。信号的 `actor` 是完成者，`TriggerPayload.ADVANCEMENT` 保存该成就的 `Identifier`，可供订阅、条件和动作读取。
+
+例如 `data/example/saturn/trigger/first_diamond.json`：
+
+```json
+{
+  "trigger": {
+    "type": "saturn:advancement_completed",
+    "advancement": "minecraft:story/mine_diamond"
+  },
+  "action": {
+    "type": "saturn:send_message",
+    "message": { "text": "钻石成就已完成" }
+  }
+}
+```
+
+该触发器也可直接用于 `TriggerSubscription` 或触发型技能，复用现有条件、概率和冷却机制。它只转发当次完成事件：登录不补发已有成就，撤销后再次完成会再次发布；持久化去重、绑定基线和奖励账本由使用方管理。此入口先在 Saturn 提供，System 暂未切换成就监听或配置。
+
+**钩子**：`api.AbilityHooks.register(ownerId, hooks)` 按模组自己的 ID 注册；相同 ID 只替换该提供者，传入 `null` 只移除该提供者。多个提供者的伤害倍率相乘，技能与物品许可必须全部通过，施放提交回调按注册顺序全部执行，技能列表去重，装备按堆叠对象身份合并。`set(...)` 保留为单独的兼容槽位，不覆盖具名提供者；新接入使用 `register`。
 
 **事件**（`event`）：`AbilityUseEvent.Pre/Post`、`AbilityTriggeredEvent`、`ResourceConsumeEvent.Pre/Post`、`CollectAbilityGrantsEvent`、`CollectPassiveAttributesEvent`、`CollectTickStagesEvent`、`TriggerRehydrateEvent`。内容事件（修炼、诅咒、丹药、阵法、秘境…）不在 Saturn。
 
-**来源与 tick 顺序**：`runtime.Sources` 生成 `saturn:grant/...`、`saturn:equipment/...` 这类来源 id，`Grant` / `Declaration` 是 record，内容可以造自己的类别；`runtime.EntityTickStages` 是每实体 tick 的阶段表（`RESOURCES` / `TRIGGERS` / `ATTRIBUTES` / `ABILITIES` / `CASTS` / `CHANNEL` …），内容用 `CollectTickStagesEvent` 贡献自己的阶段。
+**来源与 tick 顺序**：`runtime.Sources` 只定义通用来源生成规则和开放的 `Grant` / `Declaration` 类别；玩法类别由消费方提供。收集事件接受任意来源 ID，声明该 ID 即接管它的完整授予集合；撤回声明会清理对应授予，管理关系随附件保存。直接授予必须使用不同 ID。重算先增加新来源再释放旧来源，避免切换来源时丢失仍有效的技能状态；旧 `saturn:grant/...` 来源继续按受管来源处理。`EQUIPPED` 表示扩展装备集合。`runtime.EntityTickStages` 只保留库自己的阶段（`RESOURCES` / `TRIGGERS` / `ATTRIBUTES` / `EQUIPMENT` / `ABILITIES` / `CASTS` / `CHANNEL`），消费方通过 `CollectTickStagesEvent` 和自己的顺序值贡献阶段。
+
+时间线的 `ticks` 只应用显式传入的 scale，截止时限使用 `unscaledTicks`；环境或玩法倍率由消费方计算。默认注册表的回退项位于 `saturn:` 命名空间。
 
 **内容侧要自己做的**：`word` / `storage` / `flight_control` 三种技能类型、`CultivationTriggerService`（修炼进度发信号）、内容事件与其 KubeJS 绑定。
 
@@ -280,8 +301,20 @@ public MyMod(IEventBus bus) {
 
 `encode(codec, value)` / `decode(codec, bytes)` 处理字节数组；`save(codec, path, value)` / `load(codec, path)` 处理文件。压缩选项只决定写入方式，不限制读取；两种 NBT 入口均可互读，不依赖文件扩展名。
 
+所有格式的 `save` 均先完成内存编码，再通过 `FileAccess.write(path, bytes)` 原子保存：自动创建父目录，在目标同目录创建独立的临时文件，完整写入并 `force(true)`，最后原子替换目标。相对文件名同样可用；写入或原子移动失败时保留原目标，不回退为直接覆盖，正常退出方法时尝试清理临时文件，清理失败记录警告。独立临时文件避免并发写入互相截断暂存内容，但业务层读改写事务仍需调用方自己的锁。
+
+已经通过 `encode` 做过容量检查或摘要计算的调用方，直接使用公开静态方法 `FileAccess.write(Path, byte[]) throws IOException`；它只写入传入字节，不二次编码或压缩，异常由调用方处理。原有 `save` 继续以 boolean 表示成功或失败，失败记录完整异常。
+
+```java
+byte[] bytes = FileAccess.NBT_COMPRESSED.encode(MyData.CODEC, data).orElseThrow();
+// Check the byte budget or compute a digest before committing these exact bytes.
+FileAccess.write(path, bytes);
+```
+
 新 NBT 使用原版 `NbtIo.writeUnnamedTag`，保留根类型及空名称字段，可供常规 NBT 编辑器读取。读取时按 GZIP 魔数识别压缩，支持此前 `writeAnyTag` 生成的省略根名称格式；每次解析必须完整消费根数据，避免错位后读出假空对象。只有全部格式尝试失败才记录读取错误，成功兼容旧文件不会输出警告。读取不会改写文件；之后经任一入口保存时，写出该入口指定的压缩方式和标准头部。
 
 NBT 字节处理独立在包内 `NbtFiles`，不继承 `FileAccess`；NBT 单例通过私有匿名适配器创建，避免父类静态初始化引用可独立初始化的命名子类。公开 `FileAccess` 类型、原有方法和 JSON 行为保留。
 
 2026-11-08 编译记录：`gradlew compileJava jar --console=plain` 通过；IDE 对 `FileAccess` 和 `NbtFiles` 的静态检查不再报告类加载死锁警告。未启动游戏或执行测试，实际外部编辑器打开、旧文件恢复和压缩往返尚未运行验收。
+
+原子保存是后续新增 API，随下一次 Saturn 更新发布，未改版本号或下游依赖。System 当前保留自身的 `AtomicFiles`；升级到包含本 API 的依赖后，可将 `AtomicFiles.replace(path, bytes)` 换成 `FileAccess.write(path, bytes)` 并移除重复实现。原先固定名称 `.tmp` 的主动清理应一并移除，新的临时文件由 Saturn 在保存方法退出时负责清理。

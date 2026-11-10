@@ -15,14 +15,12 @@ public record TimelineContext(@NotNull LivingEntity entity, @NotNull FormulaCont
                               double scale, int length, @NotNull TimelineState state, @NotNull TimelineJump jump) {
     // -1 when the provider cannot produce a usable duration.
     public long ticks(NumberProvider duration) {
-        double value = duration.evaluate(this.formula) * this.scale
-                * Math.max(0.0D, 1.0D + this.formula.value("aura_tribulation_modifier"));
+        double value = duration.evaluate(this.formula) * this.scale;
         if (!Double.isFinite(value) || value <= 0.0D || value > Long.MAX_VALUE) return -1L;
         return Math.max(1L, Math.round(value));
     }
 
-    // The same length without the difficulty scale, for a beat that is a deadline rather than a phase of the
-    // tribulation: how hard the run is must not stretch how long a player has to meet it.
+    // Deadlines do not inherit the scale of the surrounding timeline.
     public long unscaledTicks(NumberProvider duration) {
         double value = duration.evaluate(this.formula);
         if (!Double.isFinite(value) || value <= 0.0D || value > Long.MAX_VALUE) return -1L;

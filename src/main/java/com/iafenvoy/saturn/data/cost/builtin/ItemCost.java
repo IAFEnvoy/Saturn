@@ -21,13 +21,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Takes matching items out of the payer's inventory, or out of a container the call site names. The store is any
- * {@link Container}, so an item cost can be paid out of a block entity's own slot (the talisman workstation's paper
- * slot) exactly like out of a player's inventory.
- * <p>
- * The count is read off the payer alone, not off the caller's variables, and is frozen when the entry is priced.
- */
+/** An item fee paid from the container bound to its context. */
 public record ItemCost(List<Entry> entries, NumberProvider amount) implements ItemMatcher, Cost {
     public static final MapCodec<ItemCost> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
             ENTRIES_CODEC.fieldOf("items").forGetter(ItemMatcher::entries),

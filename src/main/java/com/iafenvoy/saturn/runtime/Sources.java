@@ -15,11 +15,10 @@ import net.minecraft.world.item.ItemStack;
  * runtime uses; anything else is the content's business.
  */
 public final class Sources {
-    // One shared source, so equipping a second charm cannot release the first one's abilities.
-    public static final Identifier CURIOS = Identifier.fromNamespaceAndPath(Saturn.MOD_ID, "curios_equipment");
+    // Keep the persisted id while treating extension inventories as generic equipment.
+    public static final Identifier EQUIPPED = Identifier.fromNamespaceAndPath(Saturn.MOD_ID, "curios_equipment");
     private static final String EQUIPMENT_PREFIX = "equipment/";
     private static final String GRANT_PREFIX = "grant/";
-    private static final String FORMATION_PREFIX = "formation/";
 
     private Sources() {
     }
@@ -28,12 +27,6 @@ public final class Sources {
      * The category a framework grant is counted under: {@code saturn:grant/<category>/<namespace>/<path>}.
      */
     public record Grant(String path) {
-        public static final Grant SPIRIT_ROOT = new Grant("spirit_root");
-        public static final Grant PHYSIQUE = new Grant("physique");
-        public static final Grant TECHNIQUE = new Grant("technique");
-        public static final Grant REALM_STAGE = new Grant("realm_stage");
-        public static final Grant CREATURE = new Grant("creature");
-        public static final Grant CONTRACT = new Grant("contract");
     }
 
     /**
@@ -42,9 +35,6 @@ public final class Sources {
      */
     public record Declaration(String path) {
         public static final Declaration ABILITY = new Declaration("ability");
-        public static final Declaration REALM = new Declaration("realm");
-        public static final Declaration TECHNIQUE = new Declaration("technique");
-        public static final Declaration PHYSIQUE = new Declaration("physique");
     }
 
     // An empty slot names air.
@@ -58,13 +48,6 @@ public final class Sources {
     public static Identifier granted(Grant kind, Identifier content) {
         return Identifier.fromNamespaceAndPath(Saturn.MOD_ID,
                 GRANT_PREFIX + kind.path() + "/" + content.getNamespace() + "/" + content.getPath());
-    }
-
-    // Every instance of one definition shares this source, so leaving one instance still leaves the others' grants
-    // alone.
-    public static Identifier formation(Identifier formation) {
-        return Identifier.fromNamespaceAndPath(Saturn.MOD_ID,
-                FORMATION_PREFIX + formation.getNamespace() + "/" + formation.getPath());
     }
 
     // Held in a hand, so the grant leaves with the item; a charm in a body slot has its own source and counts as

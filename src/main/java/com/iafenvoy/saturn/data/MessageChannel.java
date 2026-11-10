@@ -7,7 +7,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Locale;
 
 /**
- * Where a message an action sends goes. Shared by the four action kinds and the formation modules, so one datapack
+ * Where a message an action sends goes. Shared by action kinds and dependent modules, so one datapack
  * value means the same thing everywhere.
  * <p>
  * Chat is the default at every use site: a message a pack never asked to put in the action bar would otherwise be

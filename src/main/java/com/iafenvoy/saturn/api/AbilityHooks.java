@@ -1,8 +1,10 @@
 package com.iafenvoy.saturn.api;
 
 import com.iafenvoy.saturn.data.ability.Ability;
+import com.iafenvoy.saturn.runtime.ability.AbilityHookRegistry;
 import com.iafenvoy.saturn.util.formula.FormulaContext;
 import net.minecraft.core.Holder;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -13,12 +15,11 @@ import java.util.List;
 /**
  * The questions the ability runtime asks of the world it is running in, which Saturn does not own.
  *
- * <p>Saturn runs a cast end to end - conditions, costs, cooldown, charges, channel, storage, events - and knows
- * nothing about damage pipelines, cultivation affinities, quality, artifacts or Curios. A dependent mod installs one
- * implementation with {@link #set} and answers as much or as little as it likes; every method defaults to the answer
- * that changes nothing, so an uninstalled hook leaves the runtime behaving exactly as it does with no extension mod.
+ * <p>Register an implementation with an owner id during mod construction. Multipliers multiply, permission checks
+ * require every provider to agree, commit callbacks all run, abilities are deduplicated, and equipment is combined
+ * by stack identity. Registration under an existing owner replaces only that owner's contribution.
  *
- * <p>The contract is per process, not per call: set it once from the mod constructor.
+ * <p>The contract is per process. An empty registry leaves the runtime unchanged.
  */
 public interface AbilityHooks {
     /**
@@ -33,19 +34,23 @@ public interface AbilityHooks {
      */
     String DAMAGE_MULTIPLIER = "damage_multiplier";
 
-    /**
-     * The one installed implementation. A nested class because an interface field is implicitly final.
-     */
-    final class Installed {
-        private static volatile AbilityHooks current = NONE;
-    }
-
     static AbilityHooks get() {
-        return Installed.current;
+        return AbilityHookRegistry.get();
     }
 
+    /**
+     * Updates the legacy registration slot. Prefer {@link #register} to isolate separate mods' contributions.
+     * Null removes only the legacy slot.
+     */
     static void set(AbilityHooks hooks) {
-        Installed.current = hooks == null ? NONE : hooks;
+        AbilityHookRegistry.register(AbilityHookRegistry.LEGACY, hooks);
+    }
+
+    /**
+     * Installs or replaces one owner's provider. Null removes that owner without changing other providers.
+     */
+    static void register(Identifier owner, AbilityHooks hooks) {
+        AbilityHookRegistry.register(owner, hooks);
     }
 
     /**
@@ -70,7 +75,7 @@ public interface AbilityHooks {
     }
 
     /**
-     * Whether the item may be used at all right now (a quality gate, a locked artifact). A {@code false} refuses a
+     * Whether the item may be used at all right now. A {@code false} refuses a
      * trigger whose payload is that item.
      */
     default boolean canUseItem(LivingEntity entity, ItemStack stack) {
@@ -85,7 +90,7 @@ public interface AbilityHooks {
     }
 
     /**
-     * The stacks that count as part of the body (a Curios inventory, an accessory slot): their abilities are granted
+     * The stacks that count as equipped by the body: their abilities are granted
      * under one shared source, so equipping a second one cannot release the first one's.
      */
     default List<ItemStack> equippedItems(LivingEntity entity) {

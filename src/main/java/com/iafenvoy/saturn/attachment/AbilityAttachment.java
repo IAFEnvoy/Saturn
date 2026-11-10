@@ -31,24 +31,39 @@ public final class AbilityAttachment extends AbstractChangeTrackable {
     public static final MapCodec<AbilityAttachment> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
             SourceLedger.codec(Ability.CODEC).lenientOptionalFieldOf("sources", new SourceLedger<>()).forGetter(AbilityAttachment::sources),
             Ability.CODEC.lenientOptionalFieldOf("channelled_ability").forGetter(AbilityAttachment::channelledAbility),
-            DataStorageHolder.codec(Ability.CODEC).lenientOptionalFieldOf("storage").forGetter(attachment -> Optional.of(attachment.storage))
+            DataStorageHolder.codec(Ability.CODEC).lenientOptionalFieldOf("storage").forGetter(attachment -> Optional.of(attachment.storage)),
+            Identifier.CODEC.listOf().lenientOptionalFieldOf("managed_sources", List.of()).forGetter(attachment -> List.copyOf(attachment.managedSources))
     ).apply(i, AbilityAttachment::new));
     private final SourceLedger<Holder<Ability>> sources;
     private final DataStorageHolder<Holder<Ability>> storage;
+    private final Set<Identifier> managedSources;
     private Optional<Holder<Ability>> channelledAbility;
 
     public AbilityAttachment() {
-        this(new SourceLedger<>(), Optional.empty(), Optional.empty());
+        this(new SourceLedger<>(), Optional.empty(), Optional.empty(), List.of());
     }
 
-    private AbilityAttachment(SourceLedger<Holder<Ability>> sources, Optional<Holder<Ability>> channelledAbility, Optional<DataStorageHolder<Holder<Ability>>> storage) {
+    private AbilityAttachment(SourceLedger<Holder<Ability>> sources, Optional<Holder<Ability>> channelledAbility, Optional<DataStorageHolder<Holder<Ability>>> storage, List<Identifier> managedSources) {
         this.sources = sources.copy();
         this.channelledAbility = channelledAbility;
         this.storage = storage.orElseGet(DataStorageHolder::new);
+        this.managedSources = new LinkedHashSet<>(managedSources);
     }
 
     public SourceLedger<Holder<Ability>> sources() {
         return this.sources;
+    }
+
+    public Set<Identifier> managedSources() {
+        return Collections.unmodifiableSet(this.managedSources);
+    }
+
+    public void setManagedSources(Collection<Identifier> sources) {
+        Set<Identifier> desired = new LinkedHashSet<>(sources);
+        if (this.managedSources.equals(desired)) return;
+        this.managedSources.clear();
+        this.managedSources.addAll(desired);
+        this.markDirty();
     }
 
     public DataStorageHolder<Holder<Ability>> storage() {
@@ -103,6 +118,6 @@ public final class AbilityAttachment extends AbstractChangeTrackable {
     // A detached draft for validation: never installed on an entity or synchronised, and its storage is a copy as
     // well, so a rejected sequence of writes leaves the real values alone.
     public AbilityAttachment copy() {
-        return new AbilityAttachment(this.sources, this.channelledAbility, Optional.of(this.storage.copy()));
+        return new AbilityAttachment(this.sources, this.channelledAbility, Optional.of(this.storage.copy()), List.copyOf(this.managedSources));
     }
 }

@@ -7,6 +7,8 @@ import com.iafenvoy.saturn.Saturn;
  * hold - holders, dimension keys, entity collections. Numbers travel as formula values instead.
  */
 public final class TriggerPayload {
+    // The Identifier of the whole advancement, including hidden and recipe advancements.
+    public static final String ADVANCEMENT = Saturn.MOD_ID + ":advancement";
     public static final String POTION = Saturn.MOD_ID + ":potion";
     public static final String DIMENSION_FROM = Saturn.MOD_ID + ":dimension_from";
     public static final String DIMENSION_TO = Saturn.MOD_ID + ":dimension_to";

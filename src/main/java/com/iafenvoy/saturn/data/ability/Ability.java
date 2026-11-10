@@ -25,7 +25,7 @@ import java.util.Optional;
  * when it may run, and how it is named and drawn.
  *
  * <p>Every ability is a registry entry, named by its own id: its registry holder is what the grant ledger and the
- * cooldowns hand around. {@code hidden} only drops the entry from an artifact's tooltip; the action
+ * cooldowns hand around. {@code hidden} only drops the entry from an item's tooltip; the action
  * fields, the cooldown and the damage condition are declared and read by the types that use them, so this record
  * declares none of them.
  *

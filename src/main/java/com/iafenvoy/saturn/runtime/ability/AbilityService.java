@@ -47,7 +47,7 @@ import java.util.OptionalDouble;
  * is checked before any of them runs.
  *
  * <p>Everything here takes the ability as its registry holder: however it was granted - a book, a command, a
- * script or a carried artifact - it takes the same path, and the holder's id is what the grant ledger and the
+ * script or a carried item - it takes the same path, and the holder's id is what the grant ledger and the
  * stored state are keyed by.
  */
 public final class AbilityService {
@@ -118,7 +118,7 @@ public final class AbilityService {
 
     // For an ability the actor does not hold but an item of theirs carries: the filled item is its own
     // permission, and everything else is the ordinary path. origin is where it happens when that is not where
-    // the actor is (a talisman on a display stand fires from the stand); null means the actor's own position.
+    // the actor is; null means the actor's own position.
     public static Result<UseData> useCarried(Holder<Ability> ability, Entity actor,
                                              AbilityAttachment abilities, ResourceHolderAttachment resources, long gameTime,
                                              FormulaContext context, @Nullable Vec3 origin) {

@@ -380,7 +380,6 @@ public final class PlayerViewVerification {
             @Override
             public MapCodec<? extends EntityValueGetter<Integer>> codec() { return MapCodec.unit(this); }
             @Override
-            @Override
             public Codec<Integer> valueCodec() { return Codec.INT; }
         };
         check(defaults.readSaved(context).missingReason().orElseThrow() == MissingReason.NOT_CAPTURED, "saved reader is optional");
@@ -406,9 +405,7 @@ public final class PlayerViewVerification {
         @Override
         public MapCodec<FixtureGetter<T>> codec() { return this.codec; }
         @Override
-        @Override
         public Codec<T> valueCodec() { return this.payload; }
-        @Override
         @Override
         public ViewValue<T> readSaved(SavedPlayerViewContext context) { return this.parser.apply(context); }
     }

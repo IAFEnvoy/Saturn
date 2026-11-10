@@ -22,15 +22,12 @@ import java.util.function.Consumer;
 public final class EntityTickStages {
     // The declared order. Numbers are spacing, not importance: anything may be inserted between them.
     public static final int RESOURCES = 100;
-    public static final int AURA_REGEN = 200;
     public static final int TRIGGERS = 300;
     public static final int ATTRIBUTES = 400;
-    public static final int CURIOS = 500;
-    public static final int PROGRESSION = 510;
+    public static final int EQUIPMENT = 500;
     public static final int ABILITIES = 600;
     public static final int CASTS = 700;
     public static final int CHANNEL = 800;
-    public static final int RIFTS = 900;
 
     // Collected on the first server tick, which is after every module has subscribed; server thread only.
     private static List<Stage> ordered;

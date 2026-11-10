@@ -36,7 +36,7 @@ public record WaitForEntry(EntityCondition condition, Optional<NumberProvider> t
     @Override
     public void begin(TimelineContext context) {
         // Not scaled by the difficulty: how long a player is given to meet a condition is a deadline, not a phase
-        // whose length the tribulation's own difficulty is allowed to stretch.
+        // whose length the surrounding timeline's scale is allowed to stretch.
         this.timeout.ifPresent(provider -> context.state().set(new WaitCountdown(context.unscaledTicks(provider))));
     }
 

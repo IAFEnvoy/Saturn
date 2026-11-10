@@ -8,10 +8,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * The one table a refusal is read out of, whichever path refused: a press, a cast, a talisman and a cast that failed
- * on its last tick all name the same reason the pipeline told apart, so no caller invents its own wording.
- */
+/** Shared failure messages for ability activation and execution. */
 public final class AbilityFeedback {
     private AbilityFeedback() {
     }

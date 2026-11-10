@@ -12,7 +12,7 @@ import java.util.Map;
 
 /**
  * Authoritative ability-use events. Only the server calls the ability service. The ability travels as its registry
- * holder, so a listener reads the same id whoever granted it - a book, a command or a carried artifact.
+ * holder, so a listener reads the same id whoever granted it - a book, a command or a carried item.
  */
 public abstract class AbilityUseEvent extends EntityEvent {
     private final Holder<Ability> ability;

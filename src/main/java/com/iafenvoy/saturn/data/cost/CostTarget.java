@@ -4,12 +4,8 @@ import com.iafenvoy.saturn.attachment.ResourceHolderAttachment;
 import com.iafenvoy.saturn.data.resource.Resource;
 import com.iafenvoy.saturn.util.HolderHelper;
 import com.iafenvoy.saturn.util.matcher.ItemMatcher;
-import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
-import net.minecraft.core.SectionPos;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.Container;
-import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -68,17 +64,6 @@ public interface CostTarget {
          * Who is really running one script: the script's own id and the payer it was bound to.
          */
         record Scope(@Nullable UUID payer, String id) {
-        }
-    }
-
-    /**
-     * A section of one chunk's pooled aura. Two positions inside one section name the same stock for diagnostics
-     * and guards; the fees are still simulated and charged separately.
-     */
-    record Section(ResourceKey<Level> dimension, int chunkX, int chunkZ, int sectionY) {
-        public static Section of(ResourceKey<Level> dimension, BlockPos pos) {
-            return new Section(dimension, SectionPos.blockToSectionCoord(pos.getX()),
-                    SectionPos.blockToSectionCoord(pos.getZ()), SectionPos.blockToSectionCoord(pos.getY()));
         }
     }
 

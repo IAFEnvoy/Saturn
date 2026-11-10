@@ -75,7 +75,7 @@ public final class AbilityEventBridge {
         event.add("ability_resources", EntityTickStages.RESOURCES, AbilityEventBridge::tickResources);
         event.add("ability_signals", EntityTickStages.TRIGGERS, AbilityEventBridge::tickSignals);
         event.add("ability_attributes", EntityTickStages.ATTRIBUTES, PassiveAttributeService::tick);
-        event.add("ability_curios", EntityTickStages.CURIOS, AbilityEventBridge::tickCurios);
+        event.add("ability_equipment", EntityTickStages.EQUIPMENT, AbilityEventBridge::tickEquipment);
         event.add("ability_lifecycle", EntityTickStages.ABILITIES, AbilityEventBridge::tickLifecycle);
         event.add("ability_casts", EntityTickStages.CASTS, AbilityEventBridge::tickCasts);
         event.add("ability_channel", EntityTickStages.CHANNEL, AbilityEventBridge::tickChannel);
@@ -109,12 +109,12 @@ public final class AbilityEventBridge {
         }
     }
 
-    // Curios is reconciled on a slow cadence, so the index has to follow it here: it is no longer rebuilt as a side
+    // Additional equipment is reconciled on a slow cadence, so the index follows it here rather than as a side
     // effect of the next publication.
-    private static void tickCurios(LivingEntity entity) {
+    private static void tickEquipment(LivingEntity entity) {
         try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.ABILITY_RECONCILE)) {
             if (entity.level().getGameTime() % 20L != 0L) return;
-            if (syncCuriosAbilities(entity, entity.getData(SaturnAttachments.ABILITY_HOLDER)))
+            if (syncEquippedAbilities(entity, entity.getData(SaturnAttachments.ABILITY_HOLDER)))
                 rebuildTriggerSubscriptions(entity);
         }
     }
@@ -216,24 +216,18 @@ public final class AbilityEventBridge {
                         .set("equipment_slot", (double) event.getSlot().ordinal()));
     }
 
-    // The artifact definition is resolved here rather than where the stack was made, so an artifact grants its
-    // skills by being held.
+    // Item grants are resolved from the current stack.
     private static List<Holder<Ability>> itemAbilities(LivingEntity entity, ItemStack stack) {
         if (stack.isEmpty()) return List.of();
         return AbilityHooks.get().itemAbilities(entity, stack);
     }
 
-    // Curios gear counts in the same source-counted ability model.
-    private static boolean syncCuriosAbilities(LivingEntity entity, AbilityAttachment holder) {
+    // Additional equipment shares the same source-counted ability model.
+    private static boolean syncEquippedAbilities(LivingEntity entity, AbilityAttachment holder) {
         Set<Holder<Ability>> current = new LinkedHashSet<>();
         for (ItemStack stack : AbilityHooks.get().equippedItems(entity))
             current.addAll(itemAbilities(entity, stack));
-        return holder.reconcileSource(Sources.CURIOS, current);
-    }
-
-    // Called by the server-side cultivation entry points after a successful breakthrough.
-    public static void onBreakthrough(LivingEntity entity, FormulaContext context) {
-        dispatch(TriggerSignals.BREAKTHROUGH, entity, context.with("breakthrough", 1.0D));
+        return holder.reconcileSource(Sources.EQUIPPED, current);
     }
 
     private static FormulaContext blockContext(Entity entity, BlockPos pos) {

@@ -17,9 +17,8 @@ import java.util.function.Supplier;
 public final class MiscCodecs {
     public static final Codec<String> NOT_BLANK_STRING = checked(Codec.STRING, value -> !value.isBlank());
     public static final Codec<Double> FINITE = Codec.DOUBLE.validate(value -> Double.isFinite(value) ? DataResult.success(value) : DataResult.error(() -> "Number value must be finite: " + value));
-
-    // A bare JSON string is a translation key and an object is a full component, so a definition stays readable
-    // without losing styling.
+    public static final Codec<Double> POSITIVE_DOUBLE = FINITE.validate(value -> value > 0 ? DataResult.success(value) : DataResult.error(() -> "Number value must be positive: " + value));
+    public static final Codec<Double> NON_NEGATIVE_DOUBLE = FINITE.validate(value -> value >= 0 ? DataResult.success(value) : DataResult.error(() -> "Number value must be non-negative: " + value));
     public static final Codec<Component> TRANSLATABLE_COMPONENT = Codec.either(Codec.STRING, ComponentSerialization.CODEC).xmap(e -> e.map(Component::translatable, Function.identity()), Either::right);
 
     /**

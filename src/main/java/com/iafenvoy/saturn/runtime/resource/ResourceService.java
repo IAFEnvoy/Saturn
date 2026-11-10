@@ -72,7 +72,6 @@ public final class ResourceService {
         return change(holder, resource, amount * elapsedTicks, context);
     }
 
-    // absorbed_aura is zero when the player has no realm stage in this resource's chain.
     public static FormulaContext formulaContext(LivingEntity entity, Holder<Resource> resource, FormulaContext base) {
         return FormulaContexts.forEntity(entity, base).withResource(resource);
     }

@@ -17,7 +17,8 @@ import java.util.List;
 
 /**
  * Asks every granting system what the body's definitions grant. The rebuild starts from the whole answer, so whatever a
- * system stops naming is released.
+ * system stops naming is released. Source ids may use any namespace or path; publishing an id transfers its full
+ * grant set to this collector until it is withdrawn. Independent grants must use different source ids.
  */
 public final class CollectAbilityGrantsEvent extends LivingEvent {
     private final SetMultimap<Identifier, Holder<Ability>> desired = LinkedHashMultimap.create();

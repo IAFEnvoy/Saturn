@@ -19,7 +19,7 @@ public interface TimelineEntry {
     MapCodec<? extends TimelineEntry> codec();
 
     // Called once, on the tick this entry becomes the current one, with an empty state. A length resolved here is
-    // settled for the rest of the beat: a later aura change cannot move a wait already running.
+    // settled for the rest of the beat: later context changes cannot move a wait already running.
     default void begin(TimelineContext context) {
     }
 

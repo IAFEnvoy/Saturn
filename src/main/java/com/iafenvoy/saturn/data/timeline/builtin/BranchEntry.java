@@ -37,7 +37,7 @@ public record BranchEntry(EntityCondition condition, OptionalInt ifTrue,
     }
 
     // Asked once before the run starts: a target past the end of the timeline is a content error, and the only
-    // moment it can be refused rather than stranding a run that already paid for its breakthrough.
+    // moment it can be refused rather than stranding a run that already committed its actions.
     @Override
     public boolean validate(TimelineContext context) {
         return inRange(this.ifTrue, context.length()) && inRange(this.ifFalse, context.length());

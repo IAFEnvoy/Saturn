@@ -3,6 +3,7 @@ package com.iafenvoy.saturn.registry.content;
 import com.iafenvoy.saturn.Saturn;
 import com.iafenvoy.saturn.data.trigger.Trigger;
 import com.iafenvoy.saturn.data.trigger.TriggerSignals;
+import com.iafenvoy.saturn.data.trigger.builtin.AdvancementCompletedTrigger;
 import com.iafenvoy.saturn.data.trigger.builtin.BuiltinTrigger;
 import com.iafenvoy.saturn.data.trigger.builtin.JsTrigger;
 import com.iafenvoy.saturn.data.trigger.builtin.VanillaTrigger;
@@ -15,6 +16,7 @@ import net.minecraft.advancements.CriterionTriggerInstance;
 import net.minecraft.advancements.criterion.*;
 import net.minecraft.resources.Identifier;
 import net.neoforged.fml.ModList;
+import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
 /**
@@ -22,6 +24,8 @@ import net.neoforged.neoforge.registries.DeferredRegister;
  */
 public final class SaturnTriggers {
     public static final DeferredRegister<MapCodec<? extends Trigger>> REGISTRY = DeferredRegister.create(SaturnRegistries.TRIGGER_TYPE, Saturn.MOD_ID);
+    public static final DeferredHolder<MapCodec<? extends Trigger>, MapCodec<AdvancementCompletedTrigger>> ADVANCEMENT_COMPLETED =
+            REGISTRY.register(TriggerSignals.ADVANCEMENT_COMPLETED.getPath(), () -> AdvancementCompletedTrigger.CODEC);
 
     static {
         builtinTrigger("tick");

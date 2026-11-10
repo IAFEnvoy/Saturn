@@ -151,7 +151,7 @@ public final class FormulaContext {
         return new FormulaContext(this.variables, this.random, registries, playerOf(this.caster, target), this.caster, target, this.resource, false);
     }
 
-    // The value a formula is evaluated for: the chain the cultivation variables read, and nothing else.
+    // The resource whose value is being evaluated.
     public FormulaContext withResource(@Nullable Holder<Resource> resource) {
         return new FormulaContext(this.variables, this.random, this.registries, this.player, this.caster, this.target,
                 resource, false);

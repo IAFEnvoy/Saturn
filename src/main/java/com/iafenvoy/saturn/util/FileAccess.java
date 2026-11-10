@@ -11,9 +11,13 @@ import net.minecraft.nbt.NbtOps;
 import org.slf4j.Logger;
 
 import java.io.*;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -59,11 +63,36 @@ public abstract class FileAccess {
         Optional<byte[]> encoded = this.encode(codec, value);
         if (encoded.isEmpty()) return false;
         try {
-            Files.write(path, encoded.get());
+            write(path, encoded.get());
             return true;
         } catch (Exception e) {
             LOGGER.error("Failed to save file: {}", path, e);
             return false;
+        }
+    }
+
+    /**
+     * Atomically replace a file with already encoded bytes, without encoding or compressing them again.
+     * Business-level read/modify/write transactions still belong to the caller.
+     */
+    public static void write(Path path, byte[] bytes) throws IOException {
+        Path target = path.toAbsolutePath();
+        Files.createDirectories(target.getParent());
+        // Separate temporary files keep independent writers from truncating each other's pending output.
+        Path temporary = Files.createTempFile(target.getParent(), target.getFileName() + ".", ".tmp");
+        try {
+            try (FileChannel file = FileChannel.open(temporary, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
+                ByteBuffer buffer = ByteBuffer.wrap(bytes);
+                while (buffer.hasRemaining()) file.write(buffer);
+                file.force(true);
+            }
+            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } finally {
+            try {
+                Files.deleteIfExists(temporary);
+            } catch (IOException error) {
+                LOGGER.warn("Failed to remove temporary file: {}", temporary, error);
+            }
         }
     }
 

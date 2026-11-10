@@ -6,11 +6,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * An action about to run for one entity, and the place it happens at when that is not the entity's own. An
- * activation is not always cast by the entity it is about (a talisman on a display stand fires from the stand),
- * so the place travels as extension data and a nested action inherits it.
- */
+/** An entity action with a formula context and an optional activation origin. */
 public class EntityActionContext extends Context {
     private final Entity entity;
     private final FormulaContext formula;

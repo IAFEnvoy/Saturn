@@ -40,6 +40,7 @@ import net.neoforged.neoforge.event.entity.living.LivingUseTotemEvent;
 import net.neoforged.neoforge.event.entity.living.MobEffectEvent.Added;
 import net.neoforged.neoforge.event.entity.living.MobEffectEvent.Expired;
 import net.neoforged.neoforge.event.entity.living.MobEffectEvent.Remove;
+import net.neoforged.neoforge.event.entity.player.AdvancementEvent.AdvancementEarnEvent;
 import net.neoforged.neoforge.event.entity.player.ArrowLooseEvent;
 import net.neoforged.neoforge.event.entity.player.ItemEntityPickupEvent;
 import net.neoforged.neoforge.event.entity.player.ItemFishedEvent;
@@ -55,7 +56,7 @@ import java.util.Map.Entry;
  * Publishes the ported vanilla triggers ({@code research/33}) from the game events that sit next to vanilla's
  * own criteria call sites, with the payload rebuilt. The signal's meaning and arguments are what is faithful;
  * the advancement lifecycle is deliberately not copied, because a criterion is a one-shot boolean owned by a
- * player and an advancement.
+ * player and an advancement. Whole advancement completion is published separately from its earned event.
  *
  * <p>Signals are published for the same entity vanilla would have called with - always a player - so a matcher
  * that rebuilds a loot context always has one. The hooks that had to bend that rule say so at the hook.
@@ -75,6 +76,13 @@ public final class VanillaTriggerBridge {
     private static final Map<UUID, Entity> PENDING_EFFECTS = new HashMap<>();
 
     private VanillaTriggerBridge() {
+    }
+
+    @SubscribeEvent
+    public static void onAdvancementCompleted(AdvancementEarnEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        TriggerPublishing.publish(TriggerSignals.ADVANCEMENT_COMPLETED, player, FormulaContext.of(player),
+                context -> context.payload(TriggerPayload.ADVANCEMENT, event.getAdvancement().id()));
     }
 
     // Consumable component required: vanilla fires this from Consumable.onConsume, and the plain item-use signal

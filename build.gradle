@@ -143,6 +143,22 @@ tasks.register('verifyPlayerViews', JavaExec) {
     }
 }
 
+tasks.register('verifyFramework', JavaExec) {
+    group = 'verification'
+    description = 'Checks timeline, source ownership, registry defaults and hook composition without starting Minecraft.'
+    dependsOn playerViewVerificationClasses
+    classpath = sourceSets.playerViewVerification.runtimeClasspath
+    mainClass = 'com.iafenvoy.saturn.framework.FrameworkVerification'
+    def verificationDirectory = layout.buildDirectory.dir('framework-verification')
+    workingDir = verificationDirectory
+    doFirst {
+        verificationDirectory.get().asFile.mkdirs()
+    }
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
 idea {
     module {
         downloadSources = true

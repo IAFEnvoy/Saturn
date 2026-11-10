@@ -1,5 +1,7 @@
 package com.iafenvoy.saturn.registry;
 
+import com.iafenvoy.saturn.Saturn;
+
 import com.iafenvoy.saturn.data.ability.AbilityType;
 import com.iafenvoy.saturn.data.ability.TargetSelector;
 import com.iafenvoy.saturn.data.action.BiEntityAction;
@@ -55,7 +57,7 @@ public final class SaturnRegistries {
     public static final DefaultedRegistry<MapCodec<? extends TargetSelector>> ABILITY_TARGET_SELECTOR_TYPE = create("self", SaturnResourceKeys.ABILITY_TARGET_SELECTOR_TYPE);
     public static final DefaultedRegistry<MapCodec<? extends Cost>> COST_TYPE = create("resource", SaturnResourceKeys.COST_TYPE);
     public static final DefaultedRegistry<MapCodec<? extends DataStorage>> DATA_STORAGE_TYPE = create("empty", SaturnResourceKeys.DATA_STORAGE_TYPE);
-    public static final DefaultedRegistry<MapCodec<? extends Trigger>> TRIGGER_TYPE = create("use", SaturnResourceKeys.TRIGGER_TYPE);
+    public static final DefaultedRegistry<MapCodec<? extends Trigger>> TRIGGER_TYPE = create("tick", SaturnResourceKeys.TRIGGER_TYPE);
     public static final DefaultedRegistry<MapCodec<? extends NumberProvider>> NUMBER_PROVIDER_TYPE = create("constant", SaturnResourceKeys.NUMBER_PROVIDER_TYPE);
     public static final DefaultedRegistry<Function> FORMULA_FUNCTION = create("round", SaturnResourceKeys.FORMULA_FUNCTION);
     public static final DefaultedRegistry<FormulaVariable> FORMULA_VARIABLE = create("zero", SaturnResourceKeys.FORMULA_VARIABLE);
@@ -80,7 +82,7 @@ public final class SaturnRegistries {
     }
 
     private static <T> DefaultedRegistry<T> create(String defaultKey, ResourceKey<? extends Registry<T>> key) {
-        DefaultedRegistry<T> registry = new DefaultedMappedRegistry<>(defaultKey, key, Lifecycle.stable(), false);
+        DefaultedRegistry<T> registry = new DefaultedMappedRegistry<>(Saturn.MOD_ID + ":" + defaultKey, key, Lifecycle.stable(), false);
         REGISTRIES.add(registry);
         return registry;
     }
