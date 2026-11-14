@@ -5,10 +5,14 @@ import com.iafenvoy.saturn.compat.kubejs.type.condition.JsBiEntityCondition;
 import com.iafenvoy.saturn.data.condition.AlwaysCondition;
 import com.iafenvoy.saturn.data.condition.BiEntityCondition;
 import com.iafenvoy.saturn.data.condition.NeverCondition;
+import com.iafenvoy.saturn.data.condition.SimpleConditions;
 import com.iafenvoy.saturn.data.condition.builtin.bientity.*;
 import com.iafenvoy.saturn.data.condition.builtin.bientity.meta.*;
 import com.iafenvoy.saturn.registry.SaturnRegistries;
 import com.mojang.serialization.MapCodec;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.OwnableEntity;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
@@ -19,6 +23,14 @@ public final class SaturnBiEntityConditions {
     public static final DeferredRegister<MapCodec<? extends BiEntityCondition>> REGISTRY = DeferredRegister.create(SaturnRegistries.BI_ENTITY_CONDITION_TYPE, Saturn.MOD_ID);
 
     static {
+        REGISTRY.register("attacker", () -> SimpleConditions.createBiEntity(ctx -> ctx.target() instanceof LivingEntity living && living.getLastHurtByMob() == ctx.actor()));
+        REGISTRY.register("attack_target", () -> SimpleConditions.createBiEntity(ctx -> ctx.actor() instanceof Mob mob && mob.getTarget() == ctx.target()));
+        REGISTRY.register("equal", () -> SimpleConditions.createBiEntity(ctx -> ctx.actor() == ctx.target()));
+        REGISTRY.register("owner", () -> SimpleConditions.createBiEntity(ctx -> ctx.target() instanceof OwnableEntity ownable && ownable.getOwnerReference() != null && ownable.getOwnerReference().getUUID().equals(ctx.actor().getUUID())));
+        REGISTRY.register("riding", () -> SimpleConditions.createBiEntity(ctx -> ctx.actor().getVehicle() == ctx.target()));
+        REGISTRY.register("riding_root", () -> SimpleConditions.createBiEntity(ctx -> ctx.actor().getRootVehicle() == ctx.target()));
+        REGISTRY.register("constant", () -> ConstantCondition.CODEC);
+        REGISTRY.register("invert", () -> InvertCondition.CODEC);
         REGISTRY.register("always", () -> AlwaysCondition.CODEC);
         REGISTRY.register("never", () -> NeverCondition.CODEC);
         REGISTRY.register("and", () -> AndBiEntityCondition.CODEC);

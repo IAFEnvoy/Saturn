@@ -3,11 +3,14 @@
 Saturn is a NeoForge library for data-driven mods. It provides an extensible ability system, resource management,
 a customizable HUD framework, and shared player views and information displays.
 
+Current local development version: **1.3.1**.
+
 Requires Minecraft **26.1.2**, NeoForge **26.1.2.99**, and Java **25**. KubeJS integration is optional.
 
 ## Features
 
-- More Codecs: Support for additional data formats and serialization methods, making it easier to work with various types of data.
+- More Codecs: Support for additional data formats and serialization methods, making it easier to work with various
+  types of data.
 - Actions & Conditions: Execute an action or check a condition, with a full set of built-in types and the ability to add
   your own. (Inspired by Origins)
 - Costs: Define costs for abilities, including item consumption, resource usage, and custom conditions.
@@ -26,7 +29,8 @@ Requires Minecraft **26.1.2**, NeoForge **26.1.2.99**, and Java **25**. KubeJS i
   elements.
 - Player Views: Parse supplied players, saved NBT, or snapshots into detached, extensible views shared by screens,
   commands, and cards.
-- Data-driven Information: Define information rows in JSON using parameterized entity getters and expressions for numbers,
+- Data-driven Information: Define information rows in JSON using parameterized entity getters and expressions for
+  numbers,
   text, meters, lists, tables, and conditions. Groups select rows through direct references or tags, with support for
   multiple groups, deduplication, and importance filtering.
 - Profiling: Built-in profiling tools to help you optimize your mod's performance and identify potential bottlenecks.
@@ -63,14 +67,20 @@ each query's failures. Snapshots distinguish queries by their complete parameter
 Rows define their own content, order, and `importance` (default `0`; higher means more important). **Groups reference
 rows**, using `Either<Holder<InformationRow>, TagKey<InformationRow>>`. `InformationRow` is a definition;
 `InformationEntry` contains the evaluated label, value, and tooltip, with holders referencing the row and its groups.
-There is one `InformationGroup` model and one `InformationRow` definition; display results do not copy their metadata. For example, a group at
+There is one `InformationGroup` model and one `InformationRow` definition; display results do not copy their metadata.
+For example, a group at
 `data/example/saturn/information_group/overview.json` can select one row and a tag:
 
 ```json
 {
-  "title": { "translate": "info.example.group.overview" },
+  "title": {
+    "translate": "info.example.group.overview"
+  },
   "order": 0,
-  "rows": ["saturn:health", "#saturn:status"]
+  "rows": [
+    "saturn:health",
+    "#saturn:status"
+  ]
 }
 ```
 
@@ -79,18 +89,19 @@ Row definitions live under `data/<namespace>/saturn/information_row/`; row tags 
 deduplicate references; collecting all rows also includes ungrouped rows. Row definitions do not declare groups.
 
 The library includes **16 information rows**, **3 groups**, and their row tags. Packs can extend group contents through
-tags or override definitions. Expressions read registered getters through their own result codecs and compose presentation
+tags or override definitions. Expressions read registered getters through their own result codecs and compose
+presentation
 values; mods can register additional expression types with a `MapCodec`. All rows and groups come from the native
 datapack registries. The separate Java row/group registry and provider API have been removed. Use `groups(view)` for
 current group discovery, `collectAll` for every row, and `collect` for selected groups. Without registry context,
 these queries return empty results; no global world or code fallback is consulted.
 
-| Registry | Purpose |
-| --- | --- |
-| `saturn:entity_value_getter` | Code registry for parameter codecs of typed live/saved-data queries |
-| `saturn:information_expression_type` | Code registry for expression types |
-| `saturn:information_row` | Datapack registry for row definitions |
-| `saturn:information_group` | Datapack registry for groups and their row/tag references |
+| Registry                             | Purpose                                                             |
+|--------------------------------------|---------------------------------------------------------------------|
+| `saturn:entity_value_getter`         | Code registry for parameter codecs of typed live/saved-data queries |
+| `saturn:information_expression_type` | Code registry for expression types                                  |
+| `saturn:information_row`             | Datapack registry for row definitions                               |
+| `saturn:information_group`           | Datapack registry for groups and their row/tag references           |
 
 Definitions follow the native world-loading registry lifecycle; reopen the world or restart the server after editing
 them. See the [data-driven information guide](docs/INFORMATION-DATA.md) for JSON formats, expression types, registry

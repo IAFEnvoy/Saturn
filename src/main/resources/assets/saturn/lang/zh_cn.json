@@ -1,4 +1,6 @@
 {
+  "saturn.cost.any_of": "任选：%s",
+  "saturn.cost.custom_item": "自定义物品条件（%s）",
   "command.saturn.information.all": "%s 的信息（%s 项）",
   "command.saturn.information.group": "%s 的信息 — %s（%s 项）",
   "command.saturn.information.unknown_group": "未知的信息分组：%s",

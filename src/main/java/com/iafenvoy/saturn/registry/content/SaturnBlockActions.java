@@ -19,6 +19,14 @@ public final class SaturnBlockActions {
     public static final DeferredRegister<MapCodec<? extends BlockAction>> REGISTRY = DeferredRegister.create(SaturnRegistries.BLOCK_ACTION_TYPE, Saturn.MOD_ID);
 
     static {
+        REGISTRY.register("modify_block_state", () -> ModifyBlockStateAction.CODEC);
+        REGISTRY.register("execute_command", () -> ExecuteCommandAction.CODEC);
+        REGISTRY.register("region_apply", () -> RegionApplyAction.CODEC);
+        REGISTRY.register("for_range", () -> ForRangeAction.CODEC);
+        REGISTRY.register("if_else_list", () -> IfElseListAction.CODEC);
+        REGISTRY.register("side", () -> SideAction.CODEC);
+        REGISTRY.register("while", () -> WhileAction.CODEC);
+        REGISTRY.register("relative_offset", () -> RelativeOffsetAction.CODEC);
         REGISTRY.register("no_op", () -> NoOpAction.CODEC);
         REGISTRY.register("sequence", () -> SequenceBlockAction.CODEC);
         REGISTRY.register("chance", () -> ChanceAction.CODEC);

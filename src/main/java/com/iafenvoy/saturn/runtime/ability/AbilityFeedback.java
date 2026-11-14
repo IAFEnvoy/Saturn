@@ -8,7 +8,9 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import org.jetbrains.annotations.Nullable;
 
-/** Shared failure messages for ability activation and execution. */
+/**
+ * Shared failure messages for ability activation and execution.
+ */
 public final class AbilityFeedback {
     private AbilityFeedback() {
     }

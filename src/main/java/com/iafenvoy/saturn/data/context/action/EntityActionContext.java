@@ -6,7 +6,9 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
-/** An entity action with a formula context and an optional activation origin. */
+/**
+ * An entity action with a formula context and an optional activation origin.
+ */
 public class EntityActionContext extends Context {
     private final Entity entity;
     private final FormulaContext formula;

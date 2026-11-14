@@ -15,6 +15,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.neoforged.neoforge.common.NeoForge;
 
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 
 // Reconciles collected sources without touching independently granted sources.
@@ -42,7 +43,7 @@ public final class AbilityGrantService {
         int granted = 0;
         int revoked = 0;
         // Add before releasing so a move between sources cannot destroy a still-granted ability's state.
-        for (var entry : desired.entries())
+        for (Map.Entry<Identifier, Holder<Ability>> entry : desired.entries())
             if (abilities.grant(entry.getValue(), entry.getKey())) granted++;
         for (Identifier source : sources) {
             Set<Holder<Ability>> wanted = desired.get(source);

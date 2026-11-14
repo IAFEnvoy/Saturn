@@ -7,10 +7,7 @@ import com.iafenvoy.saturn.data.action.NoOpAction;
 import com.iafenvoy.saturn.data.action.SimpleActions;
 import com.iafenvoy.saturn.data.action.builtin.SendMessageAction;
 import com.iafenvoy.saturn.data.action.builtin.entity.*;
-import com.iafenvoy.saturn.data.action.builtin.entity.meta.ChanceAction;
-import com.iafenvoy.saturn.data.action.builtin.entity.meta.ChoiceAction;
-import com.iafenvoy.saturn.data.action.builtin.entity.meta.IfElseAction;
-import com.iafenvoy.saturn.data.action.builtin.entity.meta.SequenceAction;
+import com.iafenvoy.saturn.data.action.builtin.entity.meta.*;
 import com.iafenvoy.saturn.registry.SaturnRegistries;
 import com.mojang.serialization.MapCodec;
 import net.neoforged.fml.ModList;
@@ -23,6 +20,23 @@ public final class SaturnEntityActions {
     public static final DeferredRegister<MapCodec<? extends EntityAction>> REGISTRY = DeferredRegister.create(SaturnRegistries.ENTITY_ACTION_TYPE, Saturn.MOD_ID);
 
     static {
+        REGISTRY.register("ender_chest", () -> EnderChestAction.CODEC);
+        REGISTRY.register("crafting_table", () -> CraftingTableAction.CODEC);
+        REGISTRY.register("execute_command", () -> ExecuteCommandAction.CODEC);
+        REGISTRY.register("grant_advancement", () -> GrantAdvancementAction.CODEC);
+        REGISTRY.register("revoke_advancement", () -> RevokeAdvancementAction.CODEC);
+        REGISTRY.register("award_stat", () -> AwardStatAction.CODEC);
+        REGISTRY.register("reset_stat", () -> ResetStatAction.CODEC);
+        REGISTRY.register("modify_inventory", () -> ModifyInventoryAction.CODEC);
+        REGISTRY.register("replace_inventory", () -> ReplaceInventoryAction.CODEC);
+        REGISTRY.register("region_apply", () -> RegionApplyAction.CODEC);
+        REGISTRY.register("area_of_effect", () -> AreaOfEffectAction.CODEC);
+        REGISTRY.register("selector_action", () -> SelectorAction.CODEC);
+        REGISTRY.register("for_range", () -> ForRangeAction.CODEC);
+        REGISTRY.register("if_else_list", () -> IfElseListAction.CODEC);
+        REGISTRY.register("side", () -> SideAction.CODEC);
+        REGISTRY.register("while", () -> WhileAction.CODEC);
+        REGISTRY.register("damage", () -> DamageAction.CODEC);
         REGISTRY.register("no_op", () -> NoOpAction.CODEC);
         REGISTRY.register("sequence", () -> SequenceAction.CODEC);
         REGISTRY.register("chance", () -> ChanceAction.CODEC);

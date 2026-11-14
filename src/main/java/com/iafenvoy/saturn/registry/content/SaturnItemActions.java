@@ -6,10 +6,7 @@ import com.iafenvoy.saturn.data.action.ItemAction;
 import com.iafenvoy.saturn.data.action.NoOpAction;
 import com.iafenvoy.saturn.data.action.builtin.SendMessageAction;
 import com.iafenvoy.saturn.data.action.builtin.item.*;
-import com.iafenvoy.saturn.data.action.builtin.item.meta.ChanceAction;
-import com.iafenvoy.saturn.data.action.builtin.item.meta.ChoiceAction;
-import com.iafenvoy.saturn.data.action.builtin.item.meta.IfElseAction;
-import com.iafenvoy.saturn.data.action.builtin.item.meta.SequenceItemAction;
+import com.iafenvoy.saturn.data.action.builtin.item.meta.*;
 import com.iafenvoy.saturn.registry.SaturnRegistries;
 import com.mojang.serialization.MapCodec;
 import net.neoforged.fml.ModList;
@@ -22,6 +19,11 @@ public final class SaturnItemActions {
     public static final DeferredRegister<MapCodec<? extends ItemAction>> REGISTRY = DeferredRegister.create(SaturnRegistries.ITEM_ACTION_TYPE, Saturn.MOD_ID);
 
     static {
+        REGISTRY.register("for_range", () -> ForRangeAction.CODEC);
+        REGISTRY.register("if_else_list", () -> IfElseListAction.CODEC);
+        REGISTRY.register("side", () -> SideAction.CODEC);
+        REGISTRY.register("while", () -> WhileAction.CODEC);
+        REGISTRY.register("holder_action", () -> HolderAction.CODEC);
         REGISTRY.register("no_op", () -> NoOpAction.CODEC);
         REGISTRY.register("sequence", () -> SequenceItemAction.CODEC);
         REGISTRY.register("chance", () -> ChanceAction.CODEC);

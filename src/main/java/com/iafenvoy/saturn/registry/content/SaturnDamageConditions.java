@@ -6,10 +6,7 @@ import com.iafenvoy.saturn.data.condition.AlwaysCondition;
 import com.iafenvoy.saturn.data.condition.DamageCondition;
 import com.iafenvoy.saturn.data.condition.NeverCondition;
 import com.iafenvoy.saturn.data.condition.builtin.damage.*;
-import com.iafenvoy.saturn.data.condition.builtin.damage.meta.AndDamageCondition;
-import com.iafenvoy.saturn.data.condition.builtin.damage.meta.ChanceDamageCondition;
-import com.iafenvoy.saturn.data.condition.builtin.damage.meta.NotDamageCondition;
-import com.iafenvoy.saturn.data.condition.builtin.damage.meta.OrDamageCondition;
+import com.iafenvoy.saturn.data.condition.builtin.damage.meta.*;
 import com.iafenvoy.saturn.registry.SaturnRegistries;
 import com.mojang.serialization.MapCodec;
 import net.neoforged.fml.ModList;
@@ -22,6 +19,9 @@ public final class SaturnDamageConditions {
     public static final DeferredRegister<MapCodec<? extends DamageCondition>> REGISTRY = DeferredRegister.create(SaturnRegistries.DAMAGE_CONDITION_TYPE, Saturn.MOD_ID);
 
     static {
+        REGISTRY.register("constant", () -> ConstantCondition.CODEC);
+        REGISTRY.register("attacker", () -> AttackerCondition.CODEC);
+        REGISTRY.register("amount", () -> AmountCondition.CODEC);
         REGISTRY.register("always", () -> AlwaysCondition.CODEC);
         REGISTRY.register("never", () -> NeverCondition.CODEC);
         REGISTRY.register("and", () -> AndDamageCondition.CODEC);

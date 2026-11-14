@@ -1,7 +1,6 @@
 package com.iafenvoy.saturn.registry;
 
 import com.iafenvoy.saturn.Saturn;
-
 import com.iafenvoy.saturn.data.ability.AbilityType;
 import com.iafenvoy.saturn.data.ability.TargetSelector;
 import com.iafenvoy.saturn.data.action.BiEntityAction;

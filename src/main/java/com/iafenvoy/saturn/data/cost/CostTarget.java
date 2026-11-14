@@ -2,10 +2,19 @@ package com.iafenvoy.saturn.data.cost;
 
 import com.iafenvoy.saturn.attachment.ResourceHolderAttachment;
 import com.iafenvoy.saturn.data.resource.Resource;
+import com.iafenvoy.saturn.registry.SaturnRegistries;
+import com.iafenvoy.saturn.util.DefinitionText;
 import com.iafenvoy.saturn.util.HolderHelper;
 import com.iafenvoy.saturn.util.matcher.ItemMatcher;
+import com.iafenvoy.saturn.util.matcher.builtin.ItemEntry;
+import com.iafenvoy.saturn.util.matcher.builtin.TagEntry;
 import net.minecraft.core.Holder;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.Container;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStackTemplate;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -28,6 +37,12 @@ public interface CostTarget {
         public String label() {
             return HolderHelper.id(this.resource).toString();
         }
+
+        @Override
+        public CostDisplay display(double amount) {
+            return CostDisplay.text(Component.translatableWithFallback(DefinitionText.key(this.resource), this.label())
+                    .append(" × " + CostDisplay.number(amount)));
+        }
     }
 
     /**
@@ -42,6 +57,29 @@ public interface CostTarget {
         @Override
         public String label() {
             return "an item demand";
+        }
+
+        @Override
+        public CostDisplay display(double amount) {
+            double count = Math.ceil(amount);
+            if (this.entries.size() == 1 && this.entries.getFirst() instanceof ItemEntry(Item item))
+                return CostDisplay.item(new ItemStackTemplate(item), count);
+            MutableComponent alternatives = Component.empty();
+            for (ItemMatcher.Entry entry : this.entries) {
+                if (!alternatives.getSiblings().isEmpty()) alternatives.append(" / ");
+                alternatives.append(describe(entry));
+            }
+            return CostDisplay.text(Component.translatable("saturn.cost.any_of", alternatives)
+                    .append(" × " + CostDisplay.number(count)));
+        }
+
+        private static Component describe(ItemMatcher.Entry entry) {
+            return switch (entry) {
+                case ItemEntry(Item item) -> new ItemStackTemplate(item).create().getHoverName();
+                case TagEntry(TagKey<Item> tag) -> Component.literal("#" + tag.location());
+                default -> Component.translatable("saturn.cost.custom_item",
+                        String.valueOf(SaturnRegistries.ITEM_MATCHER_ENTRY_TYPE.getKey(entry.codec())));
+            };
         }
     }
 
@@ -68,9 +106,17 @@ public interface CostTarget {
     }
 
     /**
-     * How this target is named in a log line. Not for players.
+     * How this target is named in a log line; also the fallback name when no custom display is provided.
      */
     String label();
+
+    /**
+     * Presents a bound amount without evaluating formulas, testing payment or reading the store. Implementations
+     * describe their own channel; consumers only collect the returned item previews and text.
+     */
+    default CostDisplay display(double amount) {
+        return CostDisplay.text(Component.literal(this.label() + " × " + CostDisplay.number(amount)));
+    }
 
     /**
      * What the re-entrancy guard holds while this target is being written. Equal guards are the same store: two fees of

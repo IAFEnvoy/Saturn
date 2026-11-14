@@ -21,7 +21,9 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
-/** An item fee paid from the container bound to its context. */
+/**
+ * An item fee paid from the container bound to its context.
+ */
 public record ItemCost(List<Entry> entries, NumberProvider amount) implements ItemMatcher, Cost {
     public static final MapCodec<ItemCost> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
             ENTRIES_CODEC.fieldOf("items").forGetter(ItemMatcher::entries),

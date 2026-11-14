@@ -21,7 +21,7 @@ import java.util.*;
 public final class FrameworkVerification {
     private static int checks;
 
-    public static void main(String[] args) {
+    static void main(String[] args) {
         timelines();
         defaults();
         hooks();

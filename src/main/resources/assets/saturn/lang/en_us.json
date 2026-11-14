@@ -1,4 +1,6 @@
 {
+  "saturn.cost.any_of": "Any of: %s",
+  "saturn.cost.custom_item": "Custom item requirement (%s)",
   "command.saturn.information.all": "Information for %s (%s rows)",
   "command.saturn.information.group": "Information for %s — %s (%s rows)",
   "command.saturn.information.unknown_group": "Unknown information group: %s",
