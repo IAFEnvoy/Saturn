@@ -1,7 +1,9 @@
 package com.iafenvoy.saturn.registry;
 
 import com.iafenvoy.saturn.Saturn;
+import com.iafenvoy.saturn.runtime.wheel.WheelLayout;
 import com.iafenvoy.saturn.screen.hud.HudManager;
+import com.iafenvoy.saturn.screen.wheel.content.WheelConfigurationScreen;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.InputConstants.Type;
 import net.minecraft.client.KeyMapping;
@@ -21,12 +23,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * The client key the framework itself owns: the HUD layout editor.
- *
- * <p>The editor is Saturn's own screen, so its mapping is wired here. Every other client key is the dependent mod's:
- * it makes one through a {@link KeyMappingHolder} (registered along with this one) or wraps one of its own with
- * {@link KeyMappingHolder#standalone}, and polls or hangs a callback on it with
- * {@link KeyMappingHolder#onStateChange}. Saturn never sends a packet on its own.
+ * Shared HUD and wheel keys, with a reusable key holder for dependent mods.
  */
 @EventBusSubscriber(Dist.CLIENT)
 public final class SaturnKeyMappings {
@@ -34,7 +31,22 @@ public final class SaturnKeyMappings {
 
     public static final KeyMappingHolder HUD_LAYOUT = new KeyMappingHolder("key.saturn.hud_layout", Type.KEYSYM, InputConstants.KEY_RSHIFT, CATEGORY);
 
+    private static final Category WHEEL_CATEGORY = new Category(Identifier.fromNamespaceAndPath(Saturn.MOD_ID, "wheel"));
+    public static final KeyMappingHolder WHEEL = new KeyMappingHolder("key.saturn.wheel", Type.KEYSYM, InputConstants.KEY_R, CATEGORY);
+    public static final KeyMappingHolder WHEEL_USE = new KeyMappingHolder("key.saturn.wheel_use", Type.KEYSYM, InputConstants.KEY_V, CATEGORY);
+    public static final KeyMappingHolder WHEEL_CONFIGURATION = new KeyMappingHolder("key.saturn.wheel_configuration", Type.KEYSYM, InputConstants.UNKNOWN.getValue(), CATEGORY);
+    public static final KeyMappingHolder WHEEL_PREVIOUS = new KeyMappingHolder("key.saturn.wheel_previous", Type.KEYSYM, InputConstants.KEY_LEFT, CATEGORY);
+    public static final KeyMappingHolder WHEEL_NEXT = new KeyMappingHolder("key.saturn.wheel_next", Type.KEYSYM, InputConstants.KEY_RIGHT, CATEGORY);
+    public static final List<KeyMappingHolder> WHEEL_SLOTS;
+
     static {
+        List<KeyMappingHolder> slots = new ArrayList<>();
+        for (int i = 0; i < WheelLayout.SLOTS; i++)
+            slots.add(new KeyMappingHolder("key.saturn.wheel_slot." + (i + 1), Type.KEYSYM, InputConstants.UNKNOWN.getValue(), WHEEL_CATEGORY, i + 10));
+        WHEEL_SLOTS = List.copyOf(slots);
+        WHEEL_CONFIGURATION.onStateChange(pressed -> {
+            if (pressed && Minecraft.getInstance().screen == null) WheelConfigurationScreen.open();
+        });
         HUD_LAYOUT.onStateChange(pressed -> {
             if (pressed && Minecraft.getInstance().screen == null) HudManager.openEditor();
         });
@@ -46,6 +58,7 @@ public final class SaturnKeyMappings {
     @SubscribeEvent
     public static void register(RegisterKeyMappingsEvent event) {
         event.registerCategory(CATEGORY);
+        event.registerCategory(WHEEL_CATEGORY);
         KeyMappingHolder.HOLDERS.stream().map(KeyMappingHolder::get).forEach(event::register);
     }
 

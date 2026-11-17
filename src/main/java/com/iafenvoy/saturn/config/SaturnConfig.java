@@ -23,6 +23,10 @@ public final class SaturnConfig {
     public static final ModConfigSpec.BooleanValue SHOW_NAMES;
     public static final ModConfigSpec.BooleanValue ICONS_IN_CENTER;
 
+    public static final ModConfigSpec.BooleanValue WHEEL_HOLD;
+    public static final ModConfigSpec.BooleanValue WHEEL_SCROLL_SWITCH;
+    public static final ModConfigSpec.BooleanValue WHEEL_WRAP_PAGES;
+
     static {
         ModConfigSpec.Builder common = new ModConfigSpec.Builder();
         common.comment("Whether each node is also registered at the top level, next to /saturn.",
@@ -44,6 +48,11 @@ public final class SaturnConfig {
                 .define("show_names", true);
         ICONS_IN_CENTER = client.comment("Draw the two icon slots in the middle of the fill instead of on its sides.")
                 .define("icons_in_center", false);
+        client.pop();
+        client.push("wheel");
+        WHEEL_HOLD = client.comment("Hold the wheel key to keep it open; false toggles it on each press.").define("hold", true);
+        WHEEL_SCROLL_SWITCH = client.comment("Turn wheel pages with the mouse wheel.").define("scroll_switch", true);
+        WHEEL_WRAP_PAGES = client.comment("Wrap from the last wheel page to the first.").define("wrap_pages", true);
         client.pop();
         CLIENT_SPEC = client.build();
     }

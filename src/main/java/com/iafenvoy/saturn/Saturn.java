@@ -4,6 +4,8 @@ import com.iafenvoy.saturn.config.SaturnConfig;
 import com.iafenvoy.saturn.gametest.InformationTests;
 import com.iafenvoy.saturn.registry.*;
 import com.iafenvoy.saturn.registry.cache.RegistryCaches;
+import com.iafenvoy.saturn.runtime.wheel.WheelEntryKinds;
+import com.iafenvoy.saturn.runtime.wheel.WheelSourceTypes;
 import com.mojang.logging.LogUtils;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -25,6 +27,8 @@ public final class Saturn {
         container.registerConfig(ModConfig.Type.COMMON, SaturnConfig.COMMON_SPEC);
         container.registerConfig(ModConfig.Type.CLIENT, SaturnConfig.CLIENT_SPEC);
 
+        WheelEntryKinds.known();
+        WheelSourceTypes.pages();
         SaturnAttachments.REGISTRY.register(bus);
         SaturnContent.register(bus);
         SaturnLootRegistries.CONDITIONS.register(bus);

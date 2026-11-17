@@ -3,8 +3,6 @@
 Saturn is a NeoForge library for data-driven mods. It provides an extensible ability system, resource management,
 a customizable HUD framework, and shared player views and information displays.
 
-Current local development version: **1.3.1**.
-
 Requires Minecraft **26.1.2**, NeoForge **26.1.2.99**, and Java **25**. KubeJS integration is optional.
 
 ## Features
@@ -23,6 +21,8 @@ Requires Minecraft **26.1.2**, NeoForge **26.1.2.99**, and Java **25**. KubeJS i
 - Abilities: Create custom abilities with unique effects, costs, and triggers, including support for passive abilities
   and resource management.
 - Resources & Bars: Manage custom resources and display them on the HUD with customizable resource bars.
+- Wheel: Native selection and configuration screens, a combined scrollable candidate pool, twelve saved slots,
+  derived pages, a HUD grid, server-validated activation, and registrable content kinds, sources, and tooltips.
 - HUD Framework: A flexible HUD system that allows you to create and customize HUD elements for your abilities and
   resources.
 - Client-side Features: Includes a drag-and-drop HUD editor, resource bar rendering, and support for custom HUD

@@ -7,6 +7,7 @@ import com.iafenvoy.saturn.data.timeline.TimelineContext;
 import com.iafenvoy.saturn.data.timeline.TimelineJump;
 import com.iafenvoy.saturn.data.timeline.TimelineState;
 import com.iafenvoy.saturn.registry.SaturnRegistries;
+import com.iafenvoy.saturn.screen.wheel.WheelConfigurationLayout;
 import com.iafenvoy.saturn.util.formula.FormulaContext;
 import com.iafenvoy.saturn.util.formula.number.Constant;
 import net.minecraft.core.*;
@@ -25,7 +26,24 @@ public final class FrameworkVerification {
         timelines();
         defaults();
         hooks();
+        wheelLayout();
         System.out.println("Framework verification: " + checks + " checks passed");
+    }
+
+    private static void wheelLayout() {
+        for (int[] size : new int[][]{{320, 240}, {426, 240}, {640, 360}, {200, 150}}) {
+            WheelConfigurationLayout layout = WheelConfigurationLayout.of(size[0], size[1]);
+            check(layout.bottom() - layout.top() >= 22, "wheel pool visible");
+            check(layout.bottom() < layout.slotY(), "wheel pool separated from slots");
+            check(layout.slotY(11) + 22 <= size[1] - 34, "wheel slots above button");
+            for (int i = 0; i < 12; i++) check(layout.slotAt(layout.x(i) + 1, layout.slotY(i) + 1) == i, "wheel slot hit " + i);
+            int scroll = layout.maximumScroll(200);
+            check(scroll > 0, "wheel pool scrollable");
+            check(layout.optionAt(layout.left() + 1, layout.top() - 1, scroll, 200) == -1, "wheel scissor clips hit");
+            check(layout.optionAt(layout.left() + 23, layout.top() + 1, 0, 200) == -1, "wheel cell gap not clickable");
+            check(layout.optionAt(layout.x(199) + 1, layout.top() + 199 / layout.columns() * 24 - scroll + 1, scroll, 200) == 199,
+                    "wheel last row reachable");
+        }
     }
 
     private static void timelines() {

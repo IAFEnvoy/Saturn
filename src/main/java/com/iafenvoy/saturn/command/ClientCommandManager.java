@@ -1,6 +1,7 @@
 package com.iafenvoy.saturn.command;
 
 import com.iafenvoy.saturn.command.client.HudCommand;
+import com.iafenvoy.saturn.command.client.WheelCommand;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -21,5 +22,6 @@ public final class ClientCommandManager {
     @SubscribeEvent
     public static void register(RegisterClientCommandsEvent event) {
         event.getDispatcher().register(HudCommand.node());
+        event.getDispatcher().register(WheelCommand.node());
     }
 }

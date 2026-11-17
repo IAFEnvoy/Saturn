@@ -77,10 +77,8 @@ configurations {
 }
 
 dependencies {
-    // Formula expressions are evaluated by exp4j; it rides along in this jar so a dependent mod does not have to
-    // declare it.
     implementation jarJar("net.objecthunter:exp4j:0.4.8")
-    // The script bridge is optional: compat.kubejs classes load only when KubeJS is installed.
+
     compileOnly "dev.latvian.mods:kubejs-neoforge:$kubejs_version"
 }
 

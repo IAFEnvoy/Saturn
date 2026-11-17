@@ -4,6 +4,7 @@ import com.iafenvoy.saturn.Saturn;
 import com.iafenvoy.saturn.attachment.AbilityAttachment;
 import com.iafenvoy.saturn.attachment.ResourceHolderAttachment;
 import com.iafenvoy.saturn.attachment.TriggerCooldownAttachment;
+import com.iafenvoy.saturn.attachment.WheelLayoutAttachment;
 import com.iafenvoy.saturn.util.ChangeTrackable;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -36,6 +37,7 @@ public final class SaturnAttachments {
 
     public static final DeferredHolder<AttachmentType<?>, AttachmentType<ResourceHolderAttachment>> RESOURCE_HOLDER = entity("resource_holder", ResourceHolderAttachment::new, ResourceHolderAttachment.CODEC);
     public static final DeferredHolder<AttachmentType<?>, AttachmentType<AbilityAttachment>> ABILITY_HOLDER = entity("ability_holder", AbilityAttachment::new, AbilityAttachment.CODEC);
+    public static final DeferredHolder<AttachmentType<?>, AttachmentType<WheelLayoutAttachment>> WHEEL_LAYOUT = entity("wheel_layout", WheelLayoutAttachment::new, WheelLayoutAttachment.CODEC);
     // Server-owned and never synced: nothing on the client draws a rule's cooldown.
     public static final DeferredHolder<AttachmentType<?>, AttachmentType<TriggerCooldownAttachment>> TRIGGER_COOLDOWNS = entityServerOnly("trigger_cooldowns", TriggerCooldownAttachment::new, TriggerCooldownAttachment.CODEC);
 
