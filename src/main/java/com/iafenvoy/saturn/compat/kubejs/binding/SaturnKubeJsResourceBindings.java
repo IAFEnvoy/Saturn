@@ -4,6 +4,8 @@ import com.google.gson.JsonElement;
 import com.iafenvoy.saturn.compat.kubejs.SaturnKubeJsApi;
 import com.iafenvoy.saturn.compat.kubejs.codec.SaturnKubeJsDataCodec;
 import com.iafenvoy.saturn.data.cost.Cost;
+import com.iafenvoy.saturn.data.cost.CostPayment.Settlement;
+import com.iafenvoy.saturn.runtime.resulting.Result;
 import com.iafenvoy.saturn.util.formula.FormulaContext;
 import dev.latvian.mods.kubejs.typings.Info;
 import net.minecraft.world.entity.Entity;
@@ -18,5 +20,11 @@ public final class SaturnKubeJsResourceBindings {
     public Object consume(Entity entity, JsonElement costs) {
         List<Cost> decoded = SaturnKubeJsDataCodec.decodeCached(Cost.LIST_CODEC, costs, entity.level().registryAccess());
         return SaturnKubeJsApi.tryConsumeResources(entity, decoded, FormulaContext.of(entity));
+    }
+
+    @Info("Pays once and returns the known debits and issues from the real deduction pass.")
+    public Result<Settlement> consumeDetailed(Entity entity, JsonElement costs) {
+        List<Cost> decoded = SaturnKubeJsDataCodec.decodeCached(Cost.LIST_CODEC, costs, entity.level().registryAccess());
+        return SaturnKubeJsApi.consumeDetailed(entity, decoded, FormulaContext.of(entity));
     }
 }

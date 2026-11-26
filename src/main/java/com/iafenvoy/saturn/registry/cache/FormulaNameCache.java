@@ -9,8 +9,8 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 
 public class FormulaNameCache<T> extends RegistryCache<Map<String, Holder<T>>> {
     private final ResourceKey<Registry<T>> registry;
@@ -24,7 +24,20 @@ public class FormulaNameCache<T> extends RegistryCache<Map<String, Holder<T>>> {
 
     @Override
     protected void build(RegistryAccess access) {
-        access.lookupOrThrow(this.registry).listElements().forEach(holder -> put(this.data, HolderHelper.id(holder), holder, this.kind));
+        Map<String, List<Identifier>> aliases = new LinkedHashMap<>();
+        access.lookupOrThrow(this.registry).listElements().forEach(holder -> {
+            Identifier id = HolderHelper.id(holder);
+            this.data.put(this.exactName(id), holder);
+            String alias = flatten(id);
+            aliases.computeIfAbsent(alias, ignored -> new ArrayList<>()).add(id);
+            this.data.putIfAbsent(alias, holder);
+        });
+        aliases.forEach((alias, ids) -> {
+            if (ids.size() == 1) return;
+            this.data.remove(alias);
+            FormulaVariables.LOGGER.log("Ambiguous formula " + this.kind + " name '" + alias + "' for " + ids
+                    + "; use exact names " + ids.stream().map(id -> "caster_" + this.exactName(id)).toList());
+        });
     }
 
     @Override
@@ -42,11 +55,12 @@ public class FormulaNameCache<T> extends RegistryCache<Map<String, Holder<T>>> {
         return this.data.get(key);
     }
 
-    private static <T> void put(Map<String, T> index, Identifier id, T value, String kind) {
-        String name = flatten(id);
-        T previous = index.putIfAbsent(name, value);
-        if (previous != null)
-            FormulaVariables.LOGGER.log("Two formula " + kind + " names flatten to '" + name + "'; '" + id + "' is ignored");
+    /**
+     * A unique formula suffix for this registry kind and identifier. The uppercase prefix is outside the legacy
+     * alias alphabet.
+     */
+    public String exactName(Identifier id) {
+        return "ID_" + this.kind + "_" + HexFormat.of().formatHex(id.toString().getBytes(StandardCharsets.UTF_8));
     }
 
     // The flat id shape every formula name uses: exp4j identifiers cannot hold / . -

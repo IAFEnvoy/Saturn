@@ -213,7 +213,7 @@ public final class AbilityService {
         // Decided before the press pays for anything: a reach that lands on nobody is a refusal, not a paid silence.
         Optional<Failure> unreached = applierFailure(definition, actor, context, origin);
         if (unreached.isPresent()) return Result.failure(unreached.get());
-        Pre resourceEvent = new Pre(resources, preparedUse.payment().resources());
+        Pre resourceEvent = new Pre(actor, resources, preparedUse.payment().resources());
         if (NeoForge.EVENT_BUS.post(resourceEvent).isCanceled()) return Result.failure(Failures.CANCELLED);
         // The event owns the amounts from here on: the payment being made is the one it handed back.
         Optional<Failure> edited = preparedUse.payment().replaceResourceAmounts(resourceEvent.getAmounts());
@@ -229,7 +229,7 @@ public final class AbilityService {
         // target action still fires on activation and then once per upkeep pulse.
         executeEffects(definition, actor, context, origin);
         Map<Identifier, Double> amounts = committed.getData().orElse(Map.of());
-        NeoForge.EVENT_BUS.post(new Post(resources, amounts));
+        NeoForge.EVENT_BUS.post(new Post(actor, resources, amounts));
         NeoForge.EVENT_BUS.post(new AbilityUseEvent.Post(actor, preparedUse.ability(), context, amounts));
         if (actor instanceof ServerPlayer player)
             AbilityHooks.get().onCommitted(player, preparedUse.ability());
@@ -305,7 +305,7 @@ public final class AbilityService {
                 return Result.failure(unpaid.get());
             }
             // The event owns the amounts from here on: the pulse being paid is the one it handed back.
-            Pre resourceEvent = new Pre(resources, upkeep.resources());
+            Pre resourceEvent = new Pre(actor, resources, upkeep.resources());
             if (NeoForge.EVENT_BUS.post(resourceEvent).isCanceled()) {
                 stopChannel(abilities);
                 return Result.failure(Failures.CANCELLED);
@@ -323,7 +323,7 @@ public final class AbilityService {
             // A channel is never carried by an item (see useCarried), so its pulses happen where the actor is.
             executeEffects(definition, actor, context, null);
             Map<Identifier, Double> amounts = CostPayment.resources(payment.getData().orElse(List.of()));
-            NeoForge.EVENT_BUS.post(new Post(resources, amounts));
+            NeoForge.EVENT_BUS.post(new Post(actor, resources, amounts));
             long intervalTicks = Math.max(1L, Math.round(interval));
             long followingTick = Math.addExact(gameTime, intervalTicks);
             AbilityStorage.value(abilities, ability, ChannelPulse.class, new ChannelPulse(0.0D), gameTime).set(followingTick);

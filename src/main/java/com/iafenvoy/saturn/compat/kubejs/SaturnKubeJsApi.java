@@ -2,11 +2,12 @@ package com.iafenvoy.saturn.compat.kubejs;
 
 import com.iafenvoy.saturn.data.cost.Cost;
 import com.iafenvoy.saturn.data.cost.CostPayment;
-import com.iafenvoy.saturn.data.cost.Debit;
+import com.iafenvoy.saturn.data.cost.CostPayment.Settlement;
 import com.iafenvoy.saturn.data.cost.context.CostContext;
 import com.iafenvoy.saturn.data.cost.context.CostOrigins;
 import com.iafenvoy.saturn.runtime.resulting.Failures;
 import com.iafenvoy.saturn.runtime.resulting.Result;
+import com.iafenvoy.saturn.runtime.resulting.failures.CostFailure;
 import com.iafenvoy.saturn.util.formula.FormulaContext;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
@@ -28,10 +29,12 @@ public final class SaturnKubeJsApi {
      * the given formula context, and the answer is the id-keyed table of what was really taken.
      */
     public static Result<Map<Identifier, Double>> tryConsumeResources(Entity entity, List<Cost> costs, FormulaContext context) {
-        if (!(entity instanceof LivingEntity payer) || entity.level().isClientSide())
-            return Result.failure(Failures.UNKNOWN);
-        Result<List<Debit>> payment = CostPayment.pay(costs, CostContext.of(payer, context, CostOrigins.SCRIPT));
-        return payment instanceof Result.SuccessResult<?> ? Result.success(CostPayment.resources(payment.getData().orElse(List.of())))
-                : Result.failure(Failures.UNKNOWN);
+        return consumeDetailed(entity, costs, context).mapData(Settlement::resources);
+    }
+
+    public static Result<Settlement> consumeDetailed(Entity entity, List<Cost> costs, FormulaContext context) {
+        if (entity.level().isClientSide()) return Result.failure(Failures.SERVER_ONLY);
+        if (!(entity instanceof LivingEntity payer) || !payer.isAlive()) return Result.failure(CostFailure.NO_PAYER);
+        return CostPayment.settle(costs, CostContext.of(payer, context, CostOrigins.SCRIPT));
     }
 }

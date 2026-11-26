@@ -10,6 +10,7 @@ import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -35,7 +36,7 @@ public final class FormulaContext {
     // copy=false is only safe for a map the caller owns and will not mutate afterwards.
     public FormulaContext(@NotNull Map<String, Double> variables, @NotNull RandomSource random, @Nullable Provider registries, @Nullable Player player, @Nullable Entity caster, @Nullable Entity target, @Nullable Holder<Resource> resource, boolean copy) {
         Objects.requireNonNull(variables, "variables");
-        this.variables = copy ? new LinkedHashMap<>(variables) : variables;
+        this.variables = Collections.unmodifiableMap(copy ? new LinkedHashMap<>(variables) : variables);
         this.random = Objects.requireNonNull(random, "random");
         this.registries = registries;
         this.player = player;

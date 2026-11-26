@@ -40,6 +40,7 @@ public final class CostPayment {
     private boolean closed;
     private boolean paying;
     private boolean uncertain;
+    private @Nullable Result<Settlement> settled;
     private @Nullable Result<List<Debit>> taken;
 
     private CostPayment(CostContext context) {
@@ -58,10 +59,17 @@ public final class CostPayment {
      * store could pay.
      */
     public static Result<List<Debit>> pay(List<Cost> costs, CostContext context) {
+        return settle(costs, context).mapData(Settlement::debits);
+    }
+
+    /**
+     * Pays the bill and reports known debits and any failures during the real pass.
+     */
+    public static Result<Settlement> settle(List<Cost> costs, CostContext context) {
         try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.COST)) {
             CostPayment payment = of(context);
             Optional<Failure> refusal = payment.price(costs);
-            return refusal.<Result<List<Debit>>>map(Result::failure).orElseGet(payment::pay);
+            return refusal.<Result<Settlement>>map(Result::failure).orElseGet(payment::settle);
         }
     }
 
@@ -100,7 +108,7 @@ public final class CostPayment {
      */
     public Optional<Failure> test() {
         try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.COST)) {
-            if (this.taken != null) return this.taken.getFailure();
+            if (this.settled != null) return this.settled.getFailure();
             if (this.failure != null) return Optional.of(this.failure);
             List<Entry> plan = this.plan();
             if (plan == null) return Optional.of(CostFailure.INVALID_AMOUNT);
@@ -117,50 +125,78 @@ public final class CostPayment {
      * Repeating this call returns the terminal answer without charging again.
      */
     public Result<List<Debit>> pay() {
+        if (this.taken != null) return this.taken;
+        Result<Settlement> result = this.settle();
+        Result<List<Debit>> debits = result.mapData(Settlement::debits);
+        if (result == this.settled) this.taken = debits;
+        return debits;
+    }
+
+    /**
+     * The detailed result of the same payment as {@link #pay()}; both share one terminal settlement.
+     */
+    public Result<Settlement> settle() {
         try (ProfilerScope _ = ServerProfiling.scope(SaturnProfilerSources.COST)) {
-            if (this.taken != null) return this.taken;
+            if (this.settled != null) return this.settled;
             if (this.paying) return Result.failure(CostFailure.REENTRANT);
             // Asked once the real pass had begun and never answered: whatever it wrote before the throw cannot be taken
             // back, so a second attempt could charge a fee that is already paid. The bill stays unanswered rather than
             // guessing, and nothing is written again.
-            if (this.uncertain) return this.taken = Result.failure(CostFailure.UNCERTAIN);
-            if (this.failure != null) return this.taken = Result.failure(this.failure, this.failedResource);
+            if (this.uncertain) return this.settled = Result.failure(CostFailure.UNCERTAIN);
+            if (this.failure != null) return this.settled = Result.failure(this.failure, this.failedResource);
             List<Entry> plan = this.plan();
-            if (plan == null) return this.taken = Result.failure(CostFailure.INVALID_AMOUNT);
+            if (plan == null) return this.settled = Result.failure(CostFailure.INVALID_AMOUNT);
             this.closed = true;
             this.paying = true;
             try {
-                return this.taken = this.settle(plan);
+                return this.settled = this.execute(plan);
             } finally {
                 this.paying = false;
             }
         }
     }
 
-    private Result<List<Debit>> settle(List<Entry> plan) {
+    private Result<Settlement> execute(List<Entry> plan) {
         for (Entry entry : plan) {
             Result<List<Debit>> simulated = entry.transaction().execute(true);
             if (simulated instanceof Result.FailureResult<?>)
                 return Result.failure(simulated.getFailure().orElseThrow());
         }
         List<Debit> debits = new ArrayList<>(plan.size());
+        List<DeductionIssue> issues = new ArrayList<>();
         // From here on a store may really be written, so an answer that never comes back leaves the bill unanswered.
         this.uncertain = true;
         for (Entry entry : plan) {
             try {
                 Result<List<Debit>> result = entry.transaction().execute(false);
                 debits.addAll(result.getData().orElse(List.of()));
-                if (result instanceof Result.FailureResult<?>)
+                if (result instanceof Result.FailureResult<?>(Failure refusal)) {
+                    issues.add(new DeductionIssue(entry.transaction().target().label(), refusal));
                     LOGGER.warn("Cost deduction failed for {} (origin {}, reason {}, resource {}); continuing payment",
-                            entry.transaction().target().label(), entry.context().origin(), result.getFailure().orElse(null),
-                            result.getFailure().flatMap(Failure::resource).orElse(null));
+                            entry.transaction().target().label(), entry.context().origin(), refusal, refusal.resource().orElse(null));
+                }
             } catch (RuntimeException exception) {
+                issues.add(new DeductionIssue(entry.transaction().target().label(), CostFailure.UNCERTAIN));
                 LOGGER.warn("Cost deduction threw for {} (origin {}); continuing payment with known debits only",
                         entry.transaction().target().label(), entry.context().origin(), exception);
             }
         }
         this.uncertain = false;
-        return Result.success(debits);
+        return Result.success(new Settlement(debits, issues));
+    }
+
+    public record Settlement(List<Debit> debits, List<DeductionIssue> issues) {
+        public Settlement {
+            debits = List.copyOf(debits);
+            issues = List.copyOf(issues);
+        }
+
+        public Map<Identifier, Double> resources() {
+            return Collections.unmodifiableMap(CostPayment.resources(this.debits));
+        }
+    }
+
+    public record DeductionIssue(String target, Failure failure) {
     }
 
     /**
@@ -199,7 +235,8 @@ public final class CostPayment {
     /**
      * Replaces the resource fees of this bill with the id-keyed table a listener hands back, which is how a
      * {@code ResourceConsumeEvent} changes what is paid: an id the new table does not name is not charged at all, and a
-     * zero removes it. Items and scripts are untouched.
+     * zero removes it. Changed totals are distributed across existing entries in proportion to their amounts.
+     * Existing entries stay in their original order, and new resources are appended.
      *
      * <p>The table is one owner's amounts, so it is only unambiguous for a bill that charges one account: a bill naming
      * two accounts keys its resources by id alone and cannot say whose balance an id means. Such a bill refuses the
@@ -210,26 +247,56 @@ public final class CostPayment {
      */
     public Optional<Failure> replaceResourceAmounts(Map<Identifier, Double> amounts) {
         if (this.closed) return Optional.of(CostFailure.BILL_CLOSED);
+        if (this.resources().equals(amounts)) return Optional.empty();
         if (!this.samePayer()) return Optional.of(CostFailure.AMBIGUOUS_PAYER);
         Provider access = this.context.formula().registries();
         if (access == null) return Optional.of(Failures.INVALID_VALUE);
         Map<Holder<Resource>, Double> resolved = new LinkedHashMap<>();
         for (Map.Entry<Identifier, Double> entry : amounts.entrySet()) {
             Identifier id = entry.getKey();
-            double amount = entry.getValue();
-            if (id == null || !Double.isFinite(amount) || amount < 0.0D) return Optional.of(CostFailure.INVALID_AMOUNT);
+            Double amount = entry.getValue();
+            if (id == null || amount == null || !Double.isFinite(amount) || amount < 0.0D)
+                return Optional.of(CostFailure.INVALID_AMOUNT);
             if (amount <= 0.0D) continue;
             Holder<Resource> resource = SaturnDatapackRegistries.holder(access, SaturnResourceKeys.RESOURCE, id).orElse(null);
             if (resource == null) return Optional.of(Failures.INVALID_VALUE);
             resolved.merge(resource, amount, Double::sum);
         }
-        CostContext context = this.resourceContext();
-        List<Entry> replaced = new ArrayList<>(this.entries.size());
+        Map<Holder<Resource>, Double> original = this.resourceAmounts();
+        if (original.values().stream().anyMatch(amount -> !Double.isFinite(amount) || amount < 0.0D))
+            return Optional.of(CostFailure.INVALID_AMOUNT);
+        Map<Holder<Resource>, Integer> remainingEntries = new HashMap<>();
         for (Entry entry : this.entries)
-            if (!(entry.transaction().target() instanceof CostTarget.Account)) replaced.add(entry);
-        for (Map.Entry<Holder<Resource>, Double> entry : resolved.entrySet()) {
-            replaced.add(new Entry(context, ResourceChannel.transaction(context, entry.getKey(), entry.getValue())));
+            if (entry.transaction().target() instanceof CostTarget.Account target)
+                remainingEntries.merge(target.resource(), 1, Integer::sum);
+        Map<Holder<Resource>, Double> remainingAmounts = new HashMap<>(resolved);
+        List<Entry> replaced = new ArrayList<>(this.entries.size());
+        for (Entry entry : this.entries) {
+            Cost.Transaction transaction = entry.transaction();
+            if (!(transaction.target() instanceof CostTarget.Account target)) {
+                replaced.add(entry);
+                continue;
+            }
+            Holder<Resource> resource = target.resource();
+            double requested = resolved.getOrDefault(resource, 0.0D);
+            double previous = original.get(resource);
+            if (requested == previous) {
+                replaced.add(entry);
+                continue;
+            }
+            if (requested == 0.0D) continue;
+            double remaining = remainingAmounts.get(resource);
+            boolean last = remainingEntries.merge(resource, -1, Integer::sum) == 0;
+            double amount = last ? remaining
+                    : previous == 0.0D ? 0.0D : Math.min(remaining, requested * (transaction.amount() / previous));
+            remainingAmounts.put(resource, remaining - amount);
+            if (amount > 0.0D) replaced.add(new Entry(entry.context(), transaction.withAmount(amount)));
         }
+        CostContext context = this.resourceContext();
+        resolved.forEach((resource, amount) -> {
+            if (!original.containsKey(resource))
+                replaced.add(new Entry(context, ResourceChannel.transaction(context, resource, amount)));
+        });
         this.entries.clear();
         this.entries.addAll(replaced);
         return Optional.empty();
@@ -241,10 +308,12 @@ public final class CostPayment {
      */
     public boolean samePayer() {
         ResourceHolderAttachment account = null;
+        boolean seen = false;
         for (Entry entry : this.entries) {
             if (!(entry.transaction().target() instanceof CostTarget.Account target)) continue;
-            if (account == null) account = target.account();
-            else if (account != target.account()) return false;
+            if (seen && account != target.account()) return false;
+            account = target.account();
+            seen = true;
         }
         return true;
     }

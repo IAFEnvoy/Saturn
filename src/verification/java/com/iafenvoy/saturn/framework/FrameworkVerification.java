@@ -3,13 +3,22 @@ package com.iafenvoy.saturn.framework;
 import com.iafenvoy.saturn.api.AbilityHooks;
 import com.iafenvoy.saturn.data.ability.Ability;
 import com.iafenvoy.saturn.data.action.NoOpAction;
+import com.iafenvoy.saturn.data.cost.Cost;
+import com.iafenvoy.saturn.data.cost.CostPayment;
+import com.iafenvoy.saturn.data.cost.CostTarget;
+import com.iafenvoy.saturn.data.cost.CostTransaction;
+import com.iafenvoy.saturn.data.cost.Debit;
+import com.iafenvoy.saturn.data.cost.context.CostContext;
 import com.iafenvoy.saturn.data.timeline.TimelineContext;
 import com.iafenvoy.saturn.data.timeline.TimelineJump;
 import com.iafenvoy.saturn.data.timeline.TimelineState;
 import com.iafenvoy.saturn.registry.SaturnRegistries;
+import com.iafenvoy.saturn.runtime.resulting.Result;
+import com.iafenvoy.saturn.runtime.resulting.failures.CostFailure;
 import com.iafenvoy.saturn.screen.wheel.WheelConfigurationLayout;
 import com.iafenvoy.saturn.util.formula.FormulaContext;
 import com.iafenvoy.saturn.util.formula.number.Constant;
+import com.mojang.serialization.MapCodec;
 import net.minecraft.core.*;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
@@ -27,6 +36,7 @@ public final class FrameworkVerification {
         defaults();
         hooks();
         wheelLayout();
+        settlements();
         System.out.println("Framework verification: " + checks + " checks passed");
     }
 
@@ -43,6 +53,44 @@ public final class FrameworkVerification {
             check(layout.optionAt(layout.left() + 23, layout.top() + 1, 0, 200) == -1, "wheel cell gap not clickable");
             check(layout.optionAt(layout.x(199) + 1, layout.top() + 199 / layout.columns() * 24 - scroll + 1, scroll, 200) == 199,
                     "wheel last row reachable");
+        }
+    }
+
+    private static void settlements() {
+        List<String> calls = new ArrayList<>();
+        CostPayment payment = CostPayment.of(CostContext.of(null, "verification"));
+        check(payment.price(List.of(new VerificationCost("refused", calls, true),
+                new VerificationCost("paid", calls, false))).isEmpty(), "bill prices both fees");
+        CostPayment.Settlement settlement = payment.settle().orThrow();
+        check(calls.equals(List.of("check:refused", "check:paid", "pay:refused", "pay:paid")), "both passes keep order");
+        check(settlement.issues().equals(List.of(new CostPayment.DeductionIssue("script refused", CostFailure.SCRIPT_REJECTED))),
+                "real failure is visible to callers");
+        check(settlement.debits().size() == 1 && settlement.debits().getFirst().amount() == 1.0D, "known debit retained");
+        check(payment.pay().orThrow().equals(settlement.debits()) && calls.size() == 4, "legacy projection never charges again");
+    }
+
+    private record VerificationCost(String id, List<String> calls, boolean refuse) implements Cost {
+        @Override
+        public Result<Transaction> prepare(CostContext context) {
+            return Result.success(new CostTransaction(new CostTarget.Script(this.id, 0, null), 1.0D) {
+                @Override
+                protected Result<List<Debit>> perform(boolean simulate) {
+                    VerificationCost.this.calls.add((simulate ? "check:" : "pay:") + VerificationCost.this.id);
+                    if (simulate) return took(List.of());
+                    if (VerificationCost.this.refuse) return refused(CostFailure.SCRIPT_REJECTED);
+                    return took(Debit.of(this.target(), this.amount()));
+                }
+
+                @Override
+                protected CostTransaction replacing(double amount) {
+                    throw new UnsupportedOperationException();
+                }
+            });
+        }
+
+        @Override
+        public MapCodec<? extends Cost> codec() {
+            throw new UnsupportedOperationException();
         }
     }
 
